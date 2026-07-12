@@ -575,3 +575,51 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod extract_tests {
+    use super::*;
+
+    /// Exercises the real sherpa-onnx tarball end-to-end: bz2 decode, selective
+    /// extraction of the two files we need, flattening of the archive's nested
+    /// directory, and the staging -> atomic-rename swap.
+    ///
+    /// Ignored by default (needs a 236 MB artifact). Run with:
+    ///   SENSEVOICE_TARBALL=/path/to.tar.bz2 cargo test extract_real_tarball -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn extract_real_tarball() {
+        let archive = std::path::PathBuf::from(
+            std::env::var("SENSEVOICE_TARBALL").expect("set SENSEVOICE_TARBALL"),
+        );
+        let tmp = std::env::temp_dir().join("sv-extract-test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let target = tmp.join("sense-voice-small-int8");
+
+        extract_model(
+            &archive,
+            "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17",
+            &target,
+        )
+        .expect("extraction failed");
+
+        assert!(target.join(MODEL_FILE).exists(), "model.int8.onnx missing");
+        assert!(target.join(TOKENS_FILE).exists(), "tokens.txt missing");
+        assert!(
+            !target.with_extension("extracting").exists(),
+            "staging dir was not swapped away"
+        );
+        assert!(
+            matches!(
+                SenseVoiceEngine::inspect_model_dir(&target),
+                ModelStatus::Available
+            ),
+            "extracted model does not report Available"
+        );
+
+        let size = std::fs::metadata(target.join(MODEL_FILE)).unwrap().len();
+        println!("extracted model.int8.onnx = {} MB", size / (1024 * 1024));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+}
