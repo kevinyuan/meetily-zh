@@ -1,7 +1,8 @@
 'use client';
 
 import { Block } from '@/types';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface BlockProps {
   block: Block;
@@ -26,37 +27,6 @@ interface CommandOption {
   description: string;
 }
 
-const COMMANDS: CommandOption[] = [
-  { 
-    id: 'text', 
-    label: 'Text', 
-    type: 'text', 
-    icon: 'T', 
-    description: 'Just start writing with plain text' 
-  },
-  { 
-    id: 'bullet', 
-    label: 'Bullet List', 
-    type: 'bullet', 
-    icon: '•', 
-    description: 'Create a bulleted list' 
-  },
-  { 
-    id: 'h1', 
-    label: 'Heading 1', 
-    type: 'heading1', 
-    icon: 'H1', 
-    description: 'Big section heading' 
-  },
-  { 
-    id: 'h2', 
-    label: 'Heading 2', 
-    type: 'heading2', 
-    icon: 'H2', 
-    description: 'Medium section heading' 
-  },
-];
-
 export const BlockComponent: React.FC<BlockProps> = ({
   block,
   isSelected,
@@ -71,6 +41,37 @@ export const BlockComponent: React.FC<BlockProps> = ({
   onNavigate,
   onCreateNewBlock,
 }) => {
+  const { t } = useTranslation();
+  const COMMANDS: CommandOption[] = useMemo(() => [
+    {
+      id: 'text',
+      label: t('meetingArea.blocks.commands.textLabel'),
+      type: 'text',
+      icon: 'T',
+      description: t('meetingArea.blocks.commands.textDescription')
+    },
+    {
+      id: 'bullet',
+      label: t('meetingArea.blocks.commands.bulletLabel'),
+      type: 'bullet',
+      icon: '•',
+      description: t('meetingArea.blocks.commands.bulletDescription')
+    },
+    {
+      id: 'h1',
+      label: t('meetingArea.blocks.commands.heading1Label'),
+      type: 'heading1',
+      icon: 'H1',
+      description: t('meetingArea.blocks.commands.heading1Description')
+    },
+    {
+      id: 'h2',
+      label: t('meetingArea.blocks.commands.heading2Label'),
+      type: 'heading2',
+      icon: 'H2',
+      description: t('meetingArea.blocks.commands.heading2Description')
+    },
+  ], [t]);
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -250,7 +251,7 @@ export const BlockComponent: React.FC<BlockProps> = ({
             ${block.type === 'heading1' ? 'text-xl font-bold' : ''}
             ${block.type === 'heading2' ? 'text-lg font-semibold' : ''}
           `}
-          placeholder="Type '/' for commands..."
+          placeholder={t('meetingArea.blocks.placeholder')}
         />
 
         {showCommands && (

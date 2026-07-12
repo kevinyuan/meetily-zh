@@ -1,0 +1,395 @@
+{
+  "settingsArea": {
+    "common": {
+      "done": "完成",
+      "cancel": "取消",
+      "dismiss": "关闭",
+      "save": "保存",
+      "openFolder": "打开文件夹",
+      "apiKey": "API 密钥",
+      "apiKeyPlaceholder": "请输入你的 API 密钥",
+      "unlockToEdit": "解锁以编辑",
+      "lockToPreventEditing": "锁定以防止编辑",
+      "selectProvider": "选择服务提供方",
+      "selectModel": "选择模型",
+      "defaultDevice": "默认",
+      "loading": "加载中…"
+    },
+    "page": {
+      "title": "设置",
+      "back": "返回",
+      "tabs": {
+        "general": "通用",
+        "recordings": "录音",
+        "transcription": "转录",
+        "summary": "摘要",
+        "beta": "实验功能"
+      }
+    },
+    "settingTabs": {
+      "transcript": "转录",
+      "aiSummary": "AI 摘要",
+      "preferences": "偏好设置",
+      "about": "关于"
+    },
+    "transcript": {
+      "modelLabel": "转录模型",
+      "providers": {
+        "parakeet": "⚡ Parakeet（推荐 - 实时 / 准确）",
+        "localWhisper": "🏠 本地 Whisper（高准确度）",
+        "senseVoice": "🀄 SenseVoice（中文 + 英语/日语/韩语/粤语）"
+      },
+      "unsupported": {
+        "parakeet": "Parakeet 不支持中文。请选择 SenseVoice 或本地 Whisper 来转录中文。",
+        "generic": "所选引擎不支持筛选的语言。"
+      }
+    },
+    "preferences": {
+      "loading": "正在加载偏好设置…",
+      "storage": {
+        "title": "数据存储位置",
+        "description": "查看并访问 Meetily 存储数据的位置",
+        "recordings": "会议录音",
+        "noteLabel": "注意：",
+        "noteText": "数据库和模型统一存放在应用数据目录中，便于集中管理。"
+      }
+    },
+    "recording": {
+      "title": "录音设置",
+      "description": "设置会议期间音频录音的保存方式。",
+      "autoSave": {
+        "title": "保存音频录音",
+        "description": "停止录制时自动保存音频文件"
+      },
+      "saveLocation": "保存位置",
+      "defaultFolder": "默认文件夹",
+      "fileFormatLabel": "文件格式：",
+      "fileFormatValue": "{{format}} 文件",
+      "timestampHint": "录音会以时间戳命名保存：recording_YYYYMMDD_HHMMSS.{{extension}}",
+      "disabledNotice": "音频录制已关闭。启用“保存音频录音”即可自动保存会议音频。",
+      "startNotification": {
+        "title": "录制开始提醒",
+        "description": "录制开始时显示提醒，以便告知参会者"
+      },
+      "devices": {
+        "title": "默认音频设备",
+        "description": "设置录制时优先使用的麦克风和系统音频设备。开始新的录制时会自动选中这些设备。"
+      },
+      "toast": {
+        "preferenceSaved": "偏好设置已保存",
+        "preferenceSaveFailed": "偏好设置保存失败",
+        "devicePreferencesSaved": "设备偏好已保存",
+        "devicePreferencesDescription": "麦克风：{{microphone}}，系统音频：{{systemAudio}}",
+        "devicePreferencesFailed": "设备偏好保存失败"
+      }
+    },
+    "summary": {
+      "autoSummary": {
+        "title": "自动摘要",
+        "description": "会议结束（停止录制）后自动生成摘要"
+      },
+      "modelConfig": {
+        "title": "摘要模型配置",
+        "description": "配置用于生成会议摘要的 AI 模型。"
+      },
+      "toast": {
+        "loadFailed": "模型设置加载失败",
+        "saved": "模型设置保存成功",
+        "saveFailed": "模型设置保存失败"
+      }
+    },
+    "summaryLanguage": {
+      "title": "摘要语言",
+      "description": "将一种语言固定为新会议的默认语言。未固定的语言仍会作为快捷选项出现在摘要生成器中。“自动”会使用转录中占主导的语言。",
+      "pinAsDefault": "将 {{language}} 固定为默认语言",
+      "unpinAsDefault": "取消将 {{language}} 固定为默认语言",
+      "clickToSetDefault": "点击设为默认",
+      "clickToUnsetDefault": "点击取消默认",
+      "remove": "移除 {{language}}",
+      "addLanguage": "＋ 添加语言",
+      "defaultHint": "默认：{{language}} —— 再次点击可取消。最多 5 个快捷选项。",
+      "noDefaultHint": "点击任意语言即可将其设为默认。最多 5 个快捷选项。"
+    },
+    "beta": {
+      "bannerTitle": "实验功能",
+      "bannerText": "这些功能仍在测试中。你可能会遇到问题，欢迎向我们反馈。",
+      "badge": "BETA",
+      "noteLabel": "注意：",
+      "noteText": "关闭后，实验功能将被隐藏。已有会议不受影响。",
+      "features": {
+        "importAndRetranscribe": {
+          "name": "导入音频并重新转录",
+          "description": "导入音频文件进行转录，或使用不同的语言设置重新转录已有会议。"
+        }
+      }
+    },
+    "models": {
+      "title": "模型设置",
+      "summarizationModel": "摘要模型",
+      "providers": {
+        "builtinAi": "内置 AI（离线，无需 API）",
+        "customOpenai": "自定义服务器（OpenAI 兼容）"
+      },
+      "selectModelPlaceholder": "选择模型…",
+      "searchModels": "搜索模型…",
+      "loadingModels": "正在加载模型…",
+      "noModelsFound": "未找到模型。",
+      "noModelsMatching": "未找到与“{{query}}”匹配的模型。请尝试其他搜索词。",
+      "modelSize": "大小为 ",
+      "downloading": "下载中…",
+      "custom": {
+        "endpointLabel": "接口地址 *",
+        "endpointHint": "OpenAI 兼容 API 的基础 URL",
+        "modelLabel": "模型名称 *",
+        "modelHint": "请求时使用的模型标识符",
+        "apiKeyLabel": "API 密钥（可选）",
+        "apiKeyPlaceholder": "如不需要可留空",
+        "advancedOptions": "高级选项",
+        "maxTokens": "最大 Token 数",
+        "maxTokensPlaceholder": "例如：4096",
+        "temperature": "温度（0.0-2.0）",
+        "temperaturePlaceholder": "例如：0.7",
+        "topP": "Top P（0.0-1.0）",
+        "topPPlaceholder": "例如：0.9",
+        "testingConnection": "正在测试连接…",
+        "testConnection": "测试连接"
+      },
+      "ollama": {
+        "customEndpoint": "自定义接口地址（可选）",
+        "customEndpointHint": "留空或输入自定义接口地址（例如 http://x.yy.zz:11434）",
+        "fetching": "获取中…",
+        "fetchModels": "获取模型",
+        "endpointChangedWarning": "接口地址已更改。请先点击“获取模型”从新地址加载模型，然后再保存。",
+        "availableModels": "可用的 Ollama 模型",
+        "using": "当前使用：",
+        "notInstalled": "Ollama 未安装或未运行。请下载并安装 Ollama 以使用本地模型。",
+        "downloadOllama": "下载 Ollama",
+        "afterInstallHint": "安装 Ollama 后，请重启本应用并点击“获取模型”继续。",
+        "endpointChangedEmpty": "接口地址已更改。点击“获取模型”从新地址加载模型。",
+        "noModelsEmpty": "未找到模型。可下载推荐模型，或点击“获取模型”加载可用的 Ollama 模型。",
+        "downloadingRecommended": "正在下载 gemma3:1b…",
+        "downloadRecommended": "下载 gemma3:1b（推荐，约 800MB）",
+        "downloadingModel": "正在下载 gemma3:1b"
+      },
+      "toast": {
+        "invalidEndpoint": "Ollama 接口地址无效。必须以 http:// 或 https:// 开头",
+        "ollamaLoadFailed": "Ollama 模型加载失败",
+        "openRouterLoadFailed": "OpenRouter 模型加载失败",
+        "builtinLoadFailed": "内置 AI 模型加载失败",
+        "customSaveFailed": "自定义 OpenAI 配置保存失败",
+        "customTestMissingFields": "请先填写接口地址和模型名称",
+        "connectionSuccessful": "连接成功！",
+        "alreadyDownloading": "{{model}} 已在下载中",
+        "downloadProgress": "进度：{{percent}}%",
+        "downloadFailed": "模型下载失败",
+        "ollamaNotInstalled": "未安装 Ollama",
+        "ollamaNotInstalledDescription": "请先下载并安装 Ollama，然后再下载模型。",
+        "downloadAction": "下载",
+        "modelDeleted": "模型 {{model}} 已删除",
+        "deleteFailed": "模型删除失败"
+      }
+    },
+    "about": {
+      "logoAlt": "Meetily 标志",
+      "tagline": "实时记录与摘要，数据始终不离开你的电脑。",
+      "checking": "检查中…",
+      "checkForUpdates": "检查更新",
+      "updateAvailable": "有可用更新：v{{version}}",
+      "latestVersion": "你当前使用的已是最新版本",
+      "checkFailed": "检查更新失败：{{error}}",
+      "unknownError": "未知错误",
+      "featuresTitle": "Meetily 的独特之处",
+      "features": {
+        "privacy": {
+          "title": "隐私优先",
+          "description": "你的数据与 AI 处理流程都可以留在本地。无需云端，不会泄露。"
+        },
+        "anyModel": {
+          "title": "任意模型",
+          "description": "想用本地开源模型？没问题。想接入外部 API？同样可以。绝不锁定。"
+        },
+        "costSmart": {
+          "title": "成本可控",
+          "description": "在本地运行模型，免去按分钟计费（或只为你选择调用的部分付费）。"
+        },
+        "everywhere": {
+          "title": "随处可用",
+          "description": "Google Meet、Zoom、Teams —— 在线或离线均可。"
+        }
+      },
+      "comingSoonLabel": "即将推出：",
+      "comingSoonText": "一整套本地 AI 智能体，自动完成跟进、行动项跟踪等工作。",
+      "ctaTitle": "准备好让你的业务更进一步了吗？",
+      "ctaTextPrefix": "如果你打算为你的",
+      "ctaTextBusiness": "企业",
+      "ctaTextSuffix": "构建隐私优先的定制 AI 智能体或完全定制的产品，我们可以帮你实现。",
+      "ctaButton": "联系 Zackriya 团队",
+      "footer": "由 Zackriya Solutions 打造"
+    },
+    "analytics": {
+      "title": "使用分析",
+      "description": "使用分析默认关闭。你可以选择开启，以分享匿名的产品与性能数据；我们不会收集任何个人内容。",
+      "enableTitle": "启用使用分析",
+      "updating": "更新中…",
+      "enableDescription": "除非你主动开启，否则保持关闭",
+      "userIdTitle": "你的用户 ID",
+      "userIdDescription": "反馈问题时请提供此 ID，便于我们排查相关日志",
+      "copyUserId": "复制用户 ID",
+      "copied": "已复制！",
+      "copy": "复制",
+      "privacyNote": "你的会议、转录和录音始终保持完全私密并保存在本地。",
+      "viewPrivacyPolicy": "查看隐私政策"
+    },
+    "analyticsModal": {
+      "title": "使用分析会收集哪些数据",
+      "privacyTitle": "你的隐私受到保护",
+      "privacyTextPrefix": "使用分析默认关闭。若你开启，我们仅收集",
+      "privacyTextHighlight": "匿名使用数据",
+      "privacyTextSuffix": "。绝不会收集会议内容、姓名、文件路径或个人信息。",
+      "dataTitle": "开启后我们会收集：",
+      "modelPreferences": {
+        "title": "1. 模型偏好",
+        "item1": "转录模型（例如“Whisper large-v3”“Parakeet”）",
+        "item2": "摘要模型（例如“Llama 3.2”“Claude Sonnet”）",
+        "item3": "模型服务提供方（例如“本地”“Ollama”“OpenRouter”）",
+        "note": "帮助我们了解用户更偏好哪些模型"
+      },
+      "meetingMetrics": {
+        "title": "2. 匿名会议指标",
+        "item1": "录制时长（例如“125 秒”）",
+        "item2": "暂停时长（例如“5 秒”）",
+        "item3": "转录片段数量",
+        "item4": "已处理的音频块数量",
+        "note": "帮助我们优化性能并了解使用模式"
+      },
+      "deviceTypes": {
+        "title": "3. 设备类型（不含设备名称）",
+        "item1": "麦克风类型：“蓝牙”“有线”或“未知”",
+        "item2": "系统音频类型：“蓝牙”“有线”或“未知”",
+        "note": "帮助我们改进兼容性，不会收集实际设备名称"
+      },
+      "usagePatterns": {
+        "title": "4. 应用使用模式",
+        "item1": "应用启动/退出事件",
+        "item2": "会话时长",
+        "item3": "功能使用情况（例如“设置已更改”）",
+        "item4": "错误发生情况（帮助我们修复缺陷）",
+        "note": "帮助我们改进用户体验"
+      },
+      "platformInfo": {
+        "title": "5. 平台信息",
+        "item1": "操作系统（例如“macOS”“Windows”）",
+        "item2": "应用版本（自动包含在所有事件中）",
+        "item3": "处理器架构（例如“x86_64”“aarch64”）",
+        "note": "帮助我们确定平台支持的优先级"
+      },
+      "dontCollect": {
+        "title": "我们不会收集：",
+        "item1": "会议名称或标题",
+        "item2": "文件名、文件路径或会议文件夹",
+        "item3": "会议转录内容",
+        "item4": "音频录音",
+        "item5": "设备名称（仅收集类型：蓝牙/有线）",
+        "item6": "个人信息",
+        "item7": "任何可识别身份的数据"
+      },
+      "exampleEvent": "事件示例：",
+      "keepEnabled": "保持开启使用分析",
+      "confirmDisable": "确认：关闭使用分析"
+    },
+    "devices": {
+      "title": "音频设备",
+      "microphone": "麦克风",
+      "selectMicrophone": "选择麦克风",
+      "defaultMicrophone": "默认麦克风",
+      "noMicrophones": "未找到麦克风设备",
+      "microphoneLevels": "麦克风电平：",
+      "systemAudio": "系统音频",
+      "selectSystemAudio": "选择系统音频",
+      "defaultSystemAudio": "默认系统音频",
+      "noSystemAudio": "未找到系统音频设备",
+      "loadFailed": "音频设备加载失败。请检查系统音频设置。",
+      "noMicrophonesToMonitor": "未找到可监测的麦克风设备",
+      "monitoringFailed": "音频电平监测启动失败",
+      "info": {
+        "microphoneLabel": "麦克风：",
+        "microphoneText": "录制你的说话声和环境声",
+        "systemAudioLabel": "系统音频：",
+        "systemAudioText": "录制电脑播放的声音（音乐、通话等）",
+        "levelsLabel": "麦克风电平：",
+        "levelsText": "绿色 = 正常，黄色 = 偏大，红色 = 过大",
+        "tipLabel": "提示：",
+        "tipText": "点击“测试麦克风”即可检查麦克风是否正常工作"
+      }
+    },
+    "audioBackend": {
+      "title": "系统音频后端",
+      "tooltipTitle": "音频采集方式：",
+      "tooltipHint": "可尝试不同的后端，找到最适合你系统的一种。",
+      "active": "使用中",
+      "disabled": "已禁用",
+      "loadFailed": "后端选项加载失败",
+      "changeFailed": "后端切换失败。请重试。",
+      "info1": "后端选择仅影响系统音频采集",
+      "info2": "麦克风始终使用默认方式",
+      "info3": "更改将在新的录制会话中生效"
+    },
+    "languageSelection": {
+      "title": "转录语言",
+      "savedToast": "语言偏好已保存",
+      "savedDescription": "转录语言已设置为 {{language}}",
+      "saveFailed": "语言偏好保存失败",
+      "parakeetTitle": "ℹ️ Parakeet 语言支持",
+      "parakeetText": "Parakeet 目前仅支持自动语言检测，无法手动选择语言。如果需要指定特定语言，请使用 Whisper。",
+      "senseVoiceTitle": "ℹ️ SenseVoice 语言支持",
+      "senseVoiceText": "SenseVoice 可转录中文、英语、日语、韩语和粤语，但不支持翻译 —— 如需翻译成英文，请使用 Whisper。",
+      "currentLabel": "当前：",
+      "autoWarningTitle": "⚠️ 自动检测可能产生错误结果",
+      "autoWarningText": "为获得最佳准确度，请选择具体的语言（例如英语、西班牙语等）。",
+      "translateTitle": "🌐 翻译模式已启用",
+      "translateText": "所有音频都会自动翻译成英文。适合需要英文输出的多语种会议。",
+      "optimizedForPrefix": "转录将针对 ",
+      "optimizedForSuffix": " 进行优化"
+    },
+    "languagePicker": {
+      "dialogLabel": "选择摘要语言",
+      "searchPlaceholder": "搜索语言…",
+      "recentlyUsed": "最近使用",
+      "auto": "自动",
+      "otherLanguages": "其他语言",
+      "allLanguages": "全部语言",
+      "noMatches": "无匹配结果"
+    },
+    "modals": {
+      "preferences": {
+        "title": "偏好设置",
+        "aiModelConfig": "AI 模型配置",
+        "summarizationModel": "摘要模型",
+        "builtinAi": "内置 AI",
+        "availableOllamaModels": "可用的 Ollama 模型",
+        "modelSize": "大小：{{size}}",
+        "modelModified": "修改时间：{{modified}}"
+      },
+      "devices": {
+        "title": "音频设备设置",
+        "selectedToast": "设备已选择",
+        "selectedDescription": "麦克风：{{microphone}}，系统音频：{{systemAudio}}"
+      },
+      "language": {
+        "title": "语言设置"
+      },
+      "modelSelector": {
+        "setupRequired": "需要先设置语音识别",
+        "title": "转录模型设置",
+        "confidenceTitle": "显示置信度指示器",
+        "confidenceDescription": "用彩色圆点显示转录的置信度质量"
+      },
+      "errorAlert": {
+        "title": "录制已停止"
+      },
+      "chunkDropWarning": {
+        "title": "转录性能警告"
+      }
+    }
+  }
+}

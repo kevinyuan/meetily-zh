@@ -18,6 +18,12 @@
   "summaryModels": {
     "strongFor": "擅长{{language}}"
   },
+  "toasts": {
+    "transcriptCopied": "转录内容已复制到剪贴板",
+    "transcriptListenerFailed": "无法建立转录监听。请查看控制台了解详情。",
+    "summaryLanguageFailed": "无法应用默认摘要语言",
+    "modelReady": "模型已就绪！正在关闭窗口……"
+  },
   "common": {
     "cancel": "取消",
     "save": "保存",

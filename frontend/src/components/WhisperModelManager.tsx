@@ -3,6 +3,8 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import {
   ModelInfo,
   ModelStatus,
@@ -11,6 +13,8 @@ import {
   getModelPerformanceBadge,
   isQuantizedModel,
   getModelTagline,
+  getAccuracyLabel,
+  getSpeedLabel,
   WhisperAPI
 } from '../lib/whisper';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -28,6 +32,7 @@ export function ModelManager({
   className = '',
   autoSave = false
 }: ModelManagerProps) {
+  const { t } = useTranslation();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,9 +111,9 @@ export function ModelManager({
         setInitialized(true);
       } catch (err) {
         console.error('Failed to initialize Whisper:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load models');
-        toast.error('Failed to load transcription models', {
-          description: err instanceof Error ? err.message : 'Unknown error',
+        setError(err instanceof Error ? err.message : i18n.t('modelsArea.common.loadFailed'));
+        toast.error(i18n.t('modelsArea.toast.loadModelsFailed'), {
+          description: err instanceof Error ? err.message : i18n.t('modelsArea.common.unknownError'),
           duration: 5000
         });
       } finally {
@@ -181,10 +186,13 @@ export function ModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.success(`${getModelIcon(model?.accuracy || 'Good')} ${displayName} ready!`, {
-            description: 'Model downloaded and ready to use',
-            duration: 4000
-          });
+          toast.success(
+            `${getModelIcon(model?.accuracy || 'Good')} ${i18n.t('modelsArea.toast.modelReady', { model: displayName })}`,
+            {
+              description: i18n.t('modelsArea.toast.modelReadyDescription'),
+              duration: 4000
+            }
+          );
 
           // Auto-select after download using stable refs
           if (onModelSelectRef.current) {
@@ -220,11 +228,11 @@ export function ModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.error(`Failed to download ${displayName}`, {
+          toast.error(i18n.t('modelsArea.toast.downloadFailed', { model: displayName }), {
             description: error,
             duration: 6000,
             action: {
-              label: 'Retry',
+              label: i18n.t('modelsArea.common.retry'),
               onClick: () => downloadModel(modelName)
             }
           });
@@ -277,13 +285,13 @@ export function ModelManager({
       // Clean up throttle data
       progressThrottleRef.current.delete(modelName);
 
-      toast.info(`${displayName} download cancelled`, {
+      toast.info(t('modelsArea.toast.downloadCancelled', { model: displayName }), {
         duration: 3000
       });
     } catch (err) {
       console.error('Failed to cancel download:', err);
-      toast.error('Failed to cancel download', {
-        description: err instanceof Error ? err.message : 'Unknown error',
+      toast.error(t('modelsArea.toast.cancelFailed'), {
+        description: err instanceof Error ? err.message : t('modelsArea.common.unknownError'),
         duration: 4000
       });
     }
@@ -305,8 +313,8 @@ export function ModelManager({
         )
       );
 
-      toast.info(`Downloading ${displayName}...`, {
-        description: 'This may take a few minutes',
+      toast.info(i18n.t('modelsArea.toast.downloading', { model: displayName }), {
+        description: i18n.t('modelsArea.toast.downloadingDescription'),
         duration: 5000
       });
 
@@ -319,7 +327,7 @@ export function ModelManager({
         return newSet;
       });
 
-      const errorMessage = err instanceof Error ? err.message : 'Download failed';
+      const errorMessage = err instanceof Error ? err.message : i18n.t('modelsArea.toast.downloadFailedDescription');
       setModels(prev =>
         prev.map(model =>
           model.name === modelName ? { ...model, status: { Error: errorMessage } } : model
@@ -340,7 +348,7 @@ export function ModelManager({
     }
 
     const displayName = getDisplayName(modelName);
-    toast.success(`Switched to ${displayName}`, {
+    toast.success(t('modelsArea.toast.switchedTo', { model: displayName }), {
       duration: 3000
     });
   };
@@ -355,8 +363,8 @@ export function ModelManager({
       const modelList = await WhisperAPI.getAvailableModels();
       setModels(modelList);
 
-      toast.success(`${displayName} deleted`, {
-        description: 'Model removed to free up space',
+      toast.success(t('modelsArea.toast.deleted', { model: displayName }), {
+        description: t('modelsArea.toast.deletedDescription'),
         duration: 3000
       });
 
@@ -366,8 +374,8 @@ export function ModelManager({
       }
     } catch (err) {
       console.error('Failed to delete model:', err);
-      toast.error(`Failed to delete ${displayName}`, {
-        description: err instanceof Error ? err.message : 'Delete failed',
+      toast.error(t('modelsArea.toast.deleteFailed', { model: displayName }), {
+        description: err instanceof Error ? err.message : t('modelsArea.toast.deleteFailedDescription'),
         duration: 4000
       });
     }
@@ -386,7 +394,7 @@ export function ModelManager({
     if (basicModelNames.includes(modelName)) {
       return modelNameMapping[modelName] || modelName;
     }
-    return `Whisper ${modelName}`;
+    return i18n.t('modelsArea.whisper.displayName', { model: modelName });
   };
 
   if (loading) {
@@ -404,7 +412,7 @@ export function ModelManager({
   if (error) {
     return (
       <div className={`bg-red-50 border border-red-200 rounded-lg p-4 ${className}`}>
-        <p className="text-sm text-red-800">Failed to load models</p>
+        <p className="text-sm text-red-800">{t('modelsArea.common.loadFailed')}</p>
         <p className="text-xs text-red-600 mt-1">{error}</p>
       </div>
     );
@@ -447,7 +455,7 @@ export function ModelManager({
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="advanced-models">
             <AccordionTrigger>
-              <span className='text-lg'>Advanced Models</span>
+              <span className='text-lg'>{t('modelsArea.whisper.advancedModels')}</span>
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-3 pt-4">
@@ -482,7 +490,7 @@ export function ModelManager({
           animate={{ opacity: 1, y: 0 }}
           className="text-xs text-gray-500 text-center pt-2"
         >
-          Using {getDisplayName(selectedModel)} for transcription
+          {t('modelsArea.common.usingForTranscription', { model: getDisplayName(selectedModel) })}
         </motion.div>
       )}
     </div>
@@ -513,6 +521,7 @@ function ModelCard({
   isDownloading,
   displayName
 }: ModelCardProps) {
+  const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
 
   const isAvailable = model.status === 'Available';
@@ -548,7 +557,7 @@ function ModelCard({
       {/* Recommended Badge */}
       {isRecommended && (
         <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-          Recommended
+          {t('modelsArea.common.recommended')}
         </div>
       )}
 
@@ -590,11 +599,11 @@ function ModelCard({
               </span>
               <span className="flex items-center space-x-1">
                 <span>🎯</span>
-                <span>{model.accuracy} accuracy</span>
+                <span>{t('modelsArea.common.accuracy', { accuracy: getAccuracyLabel(model.accuracy) })}</span>
               </span>
               <span className="flex items-center space-x-1">
                 <span>⚡</span>
-                <span>{model.speed} processing</span>
+                <span>{t('modelsArea.common.processing', { speed: getSpeedLabel(model.speed) })}</span>
               </span>
             </div>
           </div>
@@ -605,7 +614,7 @@ function ModelCard({
               <>
                 <div className="flex items-center gap-1.5 text-green-600">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-xs font-medium">Ready</span>
+                  <span className="text-xs font-medium">{t('modelsArea.common.ready')}</span>
                 </div>
                 <AnimatePresence>
                   {isHovered && (
@@ -619,7 +628,7 @@ function ModelCard({
                         onDelete();
                       }}
                       className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                      title="Delete model to free up space"
+                      title={t('modelsArea.common.deleteToFreeSpace')}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -638,7 +647,7 @@ function ModelCard({
                 }}
                 className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
               >
-                Download
+                {t('modelsArea.common.download')}
               </button>
             )}
 
@@ -650,7 +659,7 @@ function ModelCard({
                 }}
                 className="bg-red-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
               >
-                Retry
+                {t('modelsArea.common.retry')}
               </button>
             )}
 
@@ -663,7 +672,7 @@ function ModelCard({
                   }}
                   className="bg-orange-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-orange-700 transition-colors"
                 >
-                  Delete
+                  {t('modelsArea.common.delete')}
                 </button>
                 <button
                   onClick={(e) => {
@@ -672,7 +681,7 @@ function ModelCard({
                   }}
                   className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
-                  Re-download
+                  {t('modelsArea.common.redownload')}
                 </button>
               </div>
             )}
@@ -689,7 +698,7 @@ function ModelCard({
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-blue-600">Downloading...</span>
+                <span className="text-sm font-medium text-blue-600">{t('modelsArea.common.downloading')}</span>
                 <span className="text-sm font-semibold text-blue-600">{Math.round(downloadProgress)}%</span>
               </div>
               <button
@@ -698,9 +707,9 @@ function ModelCard({
                   onCancel();
                 }}
                 className="text-xs text-gray-600 hover:text-red-600 font-medium transition-colors px-2 py-1 rounded hover:bg-red-50"
-                title="Cancel download"
+                title={t('modelsArea.common.cancelDownload')}
               >
-                Cancel
+                {t('modelsArea.common.cancel')}
               </button>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -717,7 +726,7 @@ function ModelCard({
                   {formatFileSize(model.size_mb * downloadProgress / 100)} / {formatFileSize(model.size_mb)}
                 </>
               ) : (
-                'Downloading...'
+                t('modelsArea.common.downloading')
               )}
             </p>
           </motion.div>

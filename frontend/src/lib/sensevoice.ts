@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 // Types for SenseVoice (sherpa-onnx) integration
 export interface SenseVoiceModelInfo {
   name: string;
@@ -73,9 +75,21 @@ export function getModelDisplayName(modelName: string): string {
   return displayInfo?.friendlyName || modelName;
 }
 
+// Model ids contain dots, which i18next would treat as key separators, so the
+// tagline keys are mapped explicitly.
+const MODEL_TAGLINE_KEYS: Record<string, string> = {
+  'sense-voice-small-int8': 'modelsArea.sensevoice.tagline'
+};
+
 // Get model display info (icon, tagline, etc.)
 export function getModelDisplayInfo(modelName: string): ModelDisplayInfo | null {
-  return MODEL_DISPLAY_CONFIG[modelName] || null;
+  const displayInfo = MODEL_DISPLAY_CONFIG[modelName];
+  if (!displayInfo) return null;
+
+  const taglineKey = MODEL_TAGLINE_KEYS[modelName];
+  return taglineKey
+    ? { ...displayInfo, tagline: i18n.t(taglineKey, { defaultValue: displayInfo.tagline }) }
+    : displayInfo;
 }
 
 // Get the badge label for a language code (falls back to the raw code)

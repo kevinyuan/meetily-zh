@@ -7,6 +7,7 @@ import { useRecordingState } from './RecordingStateContext';
 import { transcriptService } from '@/services/transcriptService';
 import { recordingService } from '@/services/recordingService';
 import { indexedDBService } from '@/services/indexedDBService';
+import i18n from '@/i18n';
 
 interface TranscriptContextType {
   transcripts: Transcript[];
@@ -338,7 +339,7 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
         console.log('✅ MAIN transcript listener setup complete');
       } catch (error) {
         console.error('❌ Failed to setup MAIN transcript listener:', error);
-        alert('Failed to setup transcript listener. Check console for details.');
+        alert(i18n.t('toasts.transcriptListenerFailed'));
       }
     };
 
@@ -469,7 +470,7 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
       .join('\n');
     navigator.clipboard.writeText(fullTranscript);
 
-    toast.success("Transcript copied to clipboard");
+    toast.success(i18n.t('toasts.transcriptCopied'));
   }, [transcripts]);
 
   // Force flush buffer (for final transcript processing)

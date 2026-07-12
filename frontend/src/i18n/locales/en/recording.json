@@ -1,0 +1,185 @@
+{
+  "recordingArea": {
+    "common": {
+      "unknownError": "Unknown error",
+      "unknownErrorOccurred": "Unknown error occurred",
+      "viewMeeting": "View Meeting"
+    },
+    "controls": {
+      "processing": "Processing recording...",
+      "start": "Start recording",
+      "pause": "Pause recording",
+      "resume": "Resume recording",
+      "stop": "Stop recording",
+      "pausing": "Pausing...",
+      "resuming": "Resuming...",
+      "stopping": "Stopping...",
+      "validating": "Validating speech recognition...",
+      "closeAlert": "Close alert"
+    },
+    "alerts": {
+      "initFailed": "Failed to initialize recording. Please check the console for details.",
+      "pauseFailed": "Failed to pause recording. Please check the console for details.",
+      "resumeFailed": "Failed to resume recording. Please check the console for details.",
+      "startFailed": "Failed to start recording. Check console for details."
+    },
+    "deviceErrors": {
+      "microphone": {
+        "title": "Microphone Not Available",
+        "message": "Unable to access your microphone. Please check that:\n• Your microphone is connected\n• The app has microphone permissions\n• No other app is using the microphone"
+      },
+      "systemAudio": {
+        "title": "System Audio Not Available",
+        "message": "Unable to capture system audio. Please check that:\n• A virtual audio device (like BlackHole) is installed\n• The app has screen recording permissions (macOS)\n• System audio is properly configured"
+      },
+      "permission": {
+        "title": "Permission Required",
+        "message": "Recording permissions are required. Please:\n• Grant microphone access in System Settings\n• Grant screen recording access for system audio (macOS)\n• Restart the app after granting permissions"
+      },
+      "generic": {
+        "title": "Recording Failed",
+        "message": "Unable to start recording. Please check your audio device settings and try again."
+      }
+    },
+    "status": {
+      "finalizing": "Finalizing transcription...",
+      "saving": "Saving transcript..."
+    },
+    "statusBar": {
+      "recording": "Recording",
+      "paused": "Paused"
+    },
+    "transcript": {
+      "copy": "Copy",
+      "copyTooltip": "Copy Transcript",
+      "language": "Language",
+      "languageTooltip": "Language"
+    },
+    "permissions": {
+      "titleBoth": "Permissions Required",
+      "titleMicrophone": "Microphone Permission Required",
+      "titleSystemAudio": "System Audio Permission Required",
+      "openMicrophoneSettings": "Open Microphone Settings",
+      "openScreenRecordingSettings": "Open Screen Recording Settings",
+      "recheck": "Recheck",
+      "microphoneDescription": "Meetily needs access to your microphone to record meetings. No microphone devices were detected.",
+      "pleaseCheck": "Please check:",
+      "microphoneChecks": {
+        "connected": "Your microphone is connected and powered on",
+        "granted": "Microphone permission is granted in System Settings",
+        "exclusive": "No other app is exclusively using the microphone"
+      },
+      "systemAudioWithMicrophone": "System audio capture is not available. You can still record with your microphone, but computer audio won't be captured.",
+      "systemAudioWithoutMicrophone": "System audio capture is also not available.",
+      "macosStepsTitle": "To enable system audio on macOS:",
+      "macosSteps": {
+        "virtualDevice": "Install a virtual audio device (e.g., BlackHole 2ch)",
+        "screenRecording": "Grant Screen Recording permission to Meetily",
+        "routing": "Configure your audio routing in Audio MIDI Setup"
+      }
+    },
+    "bluetooth": {
+      "title": "Bluetooth Playback Detected",
+      "description": "You're using <b>{{device}}</b> for playback. Recordings may sound distorted or sped up through Bluetooth devices. For accurate review, please use <b>computer speakers</b> or <b>wired headphones</b>.",
+      "learnMore": "Learn why this happens →",
+      "dismiss": "Dismiss warning"
+    },
+    "chunkProgress": {
+      "title": "Processing Progress",
+      "paused": "Paused",
+      "pause": "Pause",
+      "resume": "Resume",
+      "cancel": "Cancel",
+      "calculating": "Calculating...",
+      "chunksCompleted": "{{completed}} of {{total}} chunks completed",
+      "stats": {
+        "completed": "Completed",
+        "processing": "Processing",
+        "pending": "Pending",
+        "failed": "Failed"
+      },
+      "estimatedRemaining": "Estimated time remaining: {{time}}",
+      "recentChunks": "Recent Chunks ({{shown}} of {{total}})",
+      "chunkLabel": "Chunk {{id}}",
+      "chunkError": "Error: {{message}}",
+      "complete": "Processing completed! All {{total}} chunks have been transcribed.",
+      "duration": {
+        "hoursMinutesSeconds": "{{hours}}h {{minutes}}m {{seconds}}s",
+        "minutesSeconds": "{{minutes}}m {{seconds}}s",
+        "seconds": "{{seconds}}s"
+      },
+      "mini": {
+        "processing": "Processing",
+        "chunks": "{{completed}} / {{total}} chunks",
+        "processingCount": "({{processing}} processing)"
+      }
+    },
+    "sidebar": {
+      "searchPlaceholder": "Search meeting content...",
+      "searching": "Searching...",
+      "match": "Match:",
+      "home": "Home",
+      "meetingNotes": "Meeting Notes",
+      "newCall": "+ New Call",
+      "startRecording": "Start Recording",
+      "recordingInProgress": "Recording in progress...",
+      "importAudio": "Import Audio",
+      "settings": "Settings",
+      "editMeetingTitle": "Edit meeting title",
+      "deleteMeeting": "Delete meeting",
+      "deleteConfirm": "Are you sure you want to delete this meeting? This action cannot be undone.",
+      "summaryTimeout": "Summary generation timed out after 15 minutes. Please try again or check your model configuration.",
+      "editModal": {
+        "title": "Edit Meeting Title",
+        "label": "Meeting Title",
+        "placeholder": "Enter meeting title",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "toasts": {
+        "deleteSuccess": "Meeting deleted successfully",
+        "deleteSuccessDescription": "All associated data has been removed",
+        "deleteError": "Failed to delete meeting",
+        "titleEmpty": "Meeting title cannot be empty",
+        "titleUpdated": "Meeting title updated successfully",
+        "titleUpdateError": "Failed to update meeting title"
+      }
+    },
+    "nav": {
+      "about": "About",
+      "aboutMeetily": "About Meetily",
+      "logoAlt": "Logo"
+    },
+    "recovery": {
+      "successTitle": "Meeting recovered successfully!",
+      "successWithAudio": "Transcripts and audio recovered",
+      "successWithoutAudio": "Transcripts recovered (no audio available)",
+      "errorTitle": "Failed to recover meeting"
+    },
+    "toasts": {
+      "modelDownloading": {
+        "title": "Model download in progress",
+        "description": "Please wait for the transcription model to finish downloading before recording."
+      },
+      "modelNotReady": {
+        "title": "Transcription model not ready",
+        "description": "Please download a transcription model before recording."
+      },
+      "modelSetupRequired": "Transcription model setup required",
+      "summaryLanguageApplyFailed": {
+        "title": "Could not apply default summary language",
+        "description": "The meeting was saved, but the default summary language was not applied."
+      },
+      "summaryLanguageDetectFailed": {
+        "title": "Could not detect summary language",
+        "description": "The meeting was saved, but Auto could not detect the summary language."
+      },
+      "saveSuccess": {
+        "title": "Recording saved successfully!",
+        "description": "{{segments}} transcript segments saved."
+      },
+      "saveError": "Failed to save meeting",
+      "noMeetingId": "No meeting ID received from save operation"
+    }
+  }
+}

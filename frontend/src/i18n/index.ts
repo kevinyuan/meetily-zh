@@ -1,20 +1,70 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-import en from './locales/en/translation.json';
-import zhHans from './locales/zh-Hans/translation.json';
 import { DEFAULT_UI_LANGUAGE, resolveUiLanguage, SUPPORTED_UI_LANGUAGES } from './languages';
+
+// Locale resources are split by area so they can be worked on independently.
+// Webpack needs static imports (Vite's import.meta.glob is not available to us), so
+// each new area file must be registered here by hand.
+import enCore from './locales/en/translation.json';
+import enSettings from './locales/en/settings.json';
+import enRecording from './locales/en/recording.json';
+import enMeeting from './locales/en/meeting.json';
+import enOnboarding from './locales/en/onboarding.json';
+import enDialogs from './locales/en/dialogs.json';
+import enModels from './locales/en/models.json';
+
+import zhCore from './locales/zh-Hans/translation.json';
+import zhSettings from './locales/zh-Hans/settings.json';
+import zhRecording from './locales/zh-Hans/recording.json';
+import zhMeeting from './locales/zh-Hans/meeting.json';
+import zhOnboarding from './locales/zh-Hans/onboarding.json';
+import zhDialogs from './locales/zh-Hans/dialogs.json';
+import zhModels from './locales/zh-Hans/models.json';
 
 export const UI_LANGUAGE_STORAGE_KEY = 'uiLanguage';
 
 /**
- * Locale resources. Webpack needs static imports, so each new locale must be
- * registered here by hand (Vite's `import.meta.glob` is not available to us).
+ * Area files own disjoint top-level keys, so a shallow merge is sufficient and a
+ * collision is a bug worth failing loudly on in development.
  */
+function mergeAreas(...areas: Record<string, unknown>[]): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const area of areas) {
+    for (const [key, value] of Object.entries(area)) {
+      if (process.env.NODE_ENV !== 'production' && key in merged) {
+        console.warn(`[i18n] duplicate top-level key "${key}" across locale area files`);
+      }
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 const resources = {
-  en: { translation: en },
-  'zh-Hans': { translation: zhHans },
-} as const;
+  en: {
+    translation: mergeAreas(
+      enCore,
+      enSettings,
+      enRecording,
+      enMeeting,
+      enOnboarding,
+      enDialogs,
+      enModels,
+    ),
+  },
+  'zh-Hans': {
+    translation: mergeAreas(
+      zhCore,
+      zhSettings,
+      zhRecording,
+      zhMeeting,
+      zhOnboarding,
+      zhDialogs,
+      zhModels,
+    ),
+  },
+};
 
 i18n.use(initReactI18next).init({
   resources,

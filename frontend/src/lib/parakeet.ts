@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 // Types for Parakeet (NVIDIA NeMo) integration
 export interface ParakeetModelInfo {
   name: string;
@@ -102,9 +104,23 @@ export function getModelDisplayName(modelName: string): string {
   return displayInfo?.friendlyName || modelName;
 }
 
+// Model names double as translation-key fragments, so they are mapped explicitly
+// (the raw ids contain dots, which i18next would read as key separators).
+const MODEL_TAGLINE_KEYS: Record<string, string> = {
+  'parakeet-tdt-0.6b-v3-int8': 'modelsArea.parakeet.taglines.lightning',
+  'parakeet-tdt-0.6b-v2-int8': 'modelsArea.parakeet.taglines.compact',
+  'parakeet-tdt-0.6b-v3-fp32': 'modelsArea.parakeet.taglines.precise'
+};
+
 // Get model display info (icon, tagline, etc.)
 export function getModelDisplayInfo(modelName: string): ModelDisplayInfo | null {
-  return MODEL_DISPLAY_CONFIG[modelName] || null;
+  const displayInfo = MODEL_DISPLAY_CONFIG[modelName];
+  if (!displayInfo) return null;
+
+  const taglineKey = MODEL_TAGLINE_KEYS[modelName];
+  return taglineKey
+    ? { ...displayInfo, tagline: i18n.t(taglineKey, { defaultValue: displayInfo.tagline }) }
+    : displayInfo;
 }
 
 export function getStatusColor(status: ModelStatus): string {

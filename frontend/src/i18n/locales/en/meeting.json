@@ -1,0 +1,235 @@
+{
+  "meetingArea": {
+    "page": {
+      "noMeetingSelected": "No meeting selected",
+      "goBack": "Go Back"
+    },
+    "modelSettings": {
+      "saveSuccess": "Model settings saved successfully",
+      "saveError": "Failed to save model settings"
+    },
+    "summary": {
+      "generatingSpinner": "Generating AI Summary...",
+      "saveFailedAlert": "Failed to save changes. Please try again.",
+      "newSection": "New Section",
+      "status": {
+        "processing": "Processing transcript...",
+        "summarizing": "Generating summary...",
+        "regenerating": "Regenerating summary...",
+        "completed": "Summary completed",
+        "error": "Error generating summary"
+      },
+      "response": {
+        "title": "Meeting Summary",
+        "keyPoints": "Key Points",
+        "actionItems": "Action Items",
+        "decisions": "Decisions",
+        "mainTopics": "Main Topics",
+        "fullSummary": "Full Summary"
+      },
+      "error": {
+        "title": "Error Generating Summary",
+        "hint": "Please check your model configuration and API keys, or try again."
+      },
+      "loading": {
+        "processingTitle": "Processing Transcript",
+        "summarizingTitle": "Generating Summary",
+        "processingDescription": "Analyzing your transcript...",
+        "summarizingDescription": "Creating a detailed summary of your meeting..."
+      },
+      "empty": {
+        "title": "No summary content available.",
+        "hint": "Try generating a new summary."
+      },
+      "language": {
+        "auto": "Auto",
+        "buttonTitle": "Summary language: {{language}}",
+        "buttonTitleLocal": "Summary language: {{language}} (saved on this device)",
+        "ariaLabel": "Set summary language",
+        "autoSubtitleLocal": "Saved on this device for folderless meetings",
+        "autoSubtitleDefault": "Uses dominant transcript language",
+        "loadFailedTitle": "Could not load saved summary language",
+        "loadFailedDescription": "Using Auto until meeting metadata can be read.",
+        "loadFailedGenerationDescription": "Using Auto for this generation.",
+        "bilingualTitle": "Bilingual transcript detected",
+        "bilingualDescription": "Pick a summary language manually if Auto chooses the wrong fallback.",
+        "savedLocallyTitle": "Summary language saved on this device",
+        "savedLocallyDescription": "This meeting has no recording folder, so the preference cannot be written to meeting metadata.",
+        "saveFailed": "Failed to save summary language"
+      }
+    },
+    "generator": {
+      "stop": "Stop",
+      "stopTitle": "Stop summary generation",
+      "processing": "Processing...",
+      "generate": "Generate Summary",
+      "regenerate": "Regenerate Summary",
+      "generateTitle": "Generate AI Summary",
+      "regenerateTitle": "Regenerate AI Summary",
+      "loadingConfigTitle": "Loading model configuration...",
+      "checkingModelsTitle": "Checking models...",
+      "settingsTitle": "Summary Settings",
+      "aiModel": "AI Model",
+      "modelSettingsDialogTitle": "Model Settings",
+      "template": "Template",
+      "templateTitle": "Select summary template"
+    },
+    "models": {
+      "loadingConfig": "Loading model configuration, please wait...",
+      "noBuiltInSelectedTitle": "No built-in AI model selected",
+      "noBuiltInSelectedDescription": "Please select a model in settings",
+      "notFoundTitle": "Model not found",
+      "notFoundDescription": "Could not find information for model: {{model}}",
+      "downloadingTitle": "Model download in progress",
+      "downloadingDescription": "{{model}} is downloading ({{progress}}%). Please wait until download completes.",
+      "notDownloadedTitle": "Model not downloaded",
+      "notDownloadedDescription": "{{model}} needs to be downloaded before use. Opening model settings...",
+      "corruptedTitle": "Model file corrupted",
+      "corruptedDescription": "{{model}} file is corrupted. Please delete and re-download.",
+      "errorTitle": "Model error",
+      "errorDescription": "An error occurred with the model",
+      "notAvailableTitle": "Model not available",
+      "notAvailableDescription": "The selected model is not ready for use",
+      "checkFailedTitle": "Failed to check model status",
+      "builtInNotDownloadedTitle": "Built-in AI model not downloaded",
+      "builtInNotDownloadedDescription": "{{model}} needs to be downloaded. Please download it in model settings.",
+      "builtInNotAvailableTitle": "Built-in AI model not available",
+      "builtInNotAvailableDescription": "{{error}}. Please check model settings.",
+      "builtInFileError": "The model file has an error",
+      "builtInFileCorrupted": "The model file is corrupted",
+      "builtInNotReadyTitle": "Built-in AI model not ready",
+      "builtInNotReadyDescription": "Please ensure the model is downloaded in settings",
+      "builtInValidateFailed": "Failed to validate built-in AI model",
+      "ollamaNoModels": "No Ollama models found. Please download gemma2:2b from Model Settings.",
+      "ollamaNoModelsSettings": "No Ollama models found. Please download gemma3:1b from Model Settings.",
+      "ollamaNotInstalledTitle": "Ollama is not installed",
+      "ollamaNotInstalledDescription": "Please download and install Ollama to use local models.",
+      "ollamaDownloadAction": "Download",
+      "ollamaCheckFailed": "Failed to check Ollama models. Please check if Ollama is running and download a model.",
+      "ollamaCheckFailedSettings": "Failed to check Ollama models. Please ensure Ollama is running and download a model from Settings."
+    },
+    "updater": {
+      "saving": "Saving...",
+      "savingTitle": "Saving",
+      "save": "Save",
+      "saveTitle": "Save Changes",
+      "copy": "Copy",
+      "copySummaryTitle": "Copy Summary"
+    },
+    "transcript": {
+      "promptPlaceholder": "Add context for AI summary. For example people involved, meeting overview, objective etc...",
+      "copy": "Copy",
+      "copyTitle": "Copy Transcript",
+      "noTranscriptTitle": "No transcript available",
+      "recording": "Recording",
+      "openFolderTitle": "Open Recording Folder",
+      "enhance": "Enhance",
+      "enhanceTitle": "Retranscribe to enhance your recorded audio",
+      "silence": "[Silence]",
+      "listening": "Listening...",
+      "paused": "Recording paused",
+      "listeningForSpeech": "Listening for speech...",
+      "resumeHint": "Click resume to continue recording",
+      "speakHint": "Speak to see live transcription",
+      "welcome": "Welcome to meetily!",
+      "startHint": "Start recording to see live transcription",
+      "loadingMore": "Loading more...",
+      "showingSegments": "Showing {{loaded}} of {{total}} segments"
+    },
+    "retranscribe": {
+      "titleProcessing": "Retranscribing...",
+      "titleFailed": "Retranscription Failed",
+      "title": "Retranscribe Meeting",
+      "descriptionProcessing": "Processing audio...",
+      "descriptionFailed": "An error occurred during retranscription",
+      "description": "Re-process the audio with different language settings",
+      "language": "Language",
+      "selectLanguage": "Select language",
+      "languageHint": "Select a specific language to improve accuracy, or use auto-detect",
+      "parakeetHint": "Language selection isn't supported for Parakeet. It always uses automatic detection.",
+      "model": "Model",
+      "loadingModels": "Loading models...",
+      "selectModel": "Select model",
+      "modelHint": "Choose a transcription model",
+      "folderMissing": "Meeting folder path not available",
+      "cancel": "Cancel",
+      "start": "Start Retranscription",
+      "close": "Close",
+      "tryAgain": "Try Again",
+      "complete": "Retranscription complete! {{segments}} segments created.",
+      "cancelled": "Retranscription cancelled"
+    },
+    "blocks": {
+      "placeholder": "Type '/' for commands...",
+      "copyBlock": "Copy block",
+      "copyBlocks": "Copy {{num}} blocks",
+      "deleteBlock": "Delete block",
+      "deleteBlocks": "Delete {{num}} blocks",
+      "commands": {
+        "textLabel": "Text",
+        "textDescription": "Just start writing with plain text",
+        "bulletLabel": "Bullet List",
+        "bulletDescription": "Create a bulleted list",
+        "heading1Label": "Heading 1",
+        "heading1Description": "Big section heading",
+        "heading2Label": "Heading 2",
+        "heading2Description": "Medium section heading"
+      }
+    },
+    "section": {
+      "editTitle": "Edit section title",
+      "deleteSectionTitle": "Delete section",
+      "delete": "Delete"
+    },
+    "toasts": {
+      "generatingSummary": "Generating summary...",
+      "regeneratingSummary": "Regenerating summary...",
+      "usingModel": "Using {{provider}}/{{model}}",
+      "generateFailed": "Failed to generate summary",
+      "regenerateFailed": "Failed to regenerate summary",
+      "regenerateFailedRestored": "{{error}}. Your previous summary has been restored.",
+      "connectionRefused": "Could not connect to LLM service. Please ensure Ollama or your configured LLM provider is running.",
+      "summarySuccess": "Summary generated successfully!",
+      "summarySuccessDescription": "Your meeting summary is ready",
+      "generationFailedFallback": "Summary generation failed",
+      "regenerationFailedFallback": "Summary regeneration failed",
+      "emptySummary": "Summary generation completed but returned empty content.",
+      "noTranscriptText": "No transcript text available. Please add some text first.",
+      "fetchTranscriptsFailed": "Failed to fetch transcripts for summary generation",
+      "noTranscripts": "No transcripts available for summary",
+      "noTranscriptsRegenerate": "No transcripts available for summary regeneration",
+      "generationStopped": "Summary generation stopped",
+      "generationStoppedDescription": "You can generate a new summary anytime",
+      "changesSaved": "Changes saved successfully",
+      "changesSaveFailed": "Failed to save changes",
+      "copyTranscriptsFetchFailed": "Failed to fetch transcripts for copying",
+      "noTranscriptsToCopy": "No transcripts available to copy",
+      "transcriptCopied": "Transcript copied to clipboard",
+      "summaryCopied": "Summary copied to clipboard",
+      "noSummaryToCopy": "No summary content available to copy",
+      "copySummaryFailed": "Failed to copy summary",
+      "templateSelected": "Template selected",
+      "templateSelectedDescription": "Using \"{{name}}\" template for summary generation",
+      "openFolderFailed": "Failed to open recording folder",
+      "unknownError": "Unknown error"
+    },
+    "clipboard": {
+      "transcriptHeader": "Transcript of the Meeting: {{id}} - {{title}}",
+      "transcriptDate": "Date: {{date}}",
+      "summaryHeader": "Meeting Summary: {{title}}",
+      "meetingIdLabel": "Meeting ID:",
+      "dateLabel": "Date:",
+      "copiedOnLabel": "Copied on:"
+    },
+    "meetingData": {
+      "newCall": "+ New Call",
+      "saveTitleFailed": "Failed to save meeting title: Unknown error",
+      "saveSummaryFailed": "Failed to save meeting summary: Unknown error"
+    },
+    "modelConfig": {
+      "saveSuccess": "Summary settings Saved successfully",
+      "saveFailed": "Failed to save summary settings",
+      "saveFailedUnknown": "Failed to save model config: Unknown error"
+    }
+  }
+}

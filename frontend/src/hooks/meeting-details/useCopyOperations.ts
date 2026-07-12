@@ -2,6 +2,7 @@ import { useCallback, RefObject } from 'react';
 import { Transcript, Summary } from '@/types';
 import { BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
 import { toast } from 'sonner';
+import i18n from '@/i18n';
 import Analytics from '@/lib/analytics';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 
@@ -51,7 +52,7 @@ export function useCopyOperations({
       return allData.transcripts;
     } catch (error) {
       console.error('❌ Error fetching all transcripts:', error);
-      toast.error('Failed to fetch transcripts for copying');
+      toast.error(i18n.t('meetingArea.toasts.copyTranscriptsFetchFailed'));
       return [];
     }
   }, []);
@@ -63,9 +64,8 @@ export function useCopyOperations({
     const allTranscripts = await fetchAllTranscripts(meeting.id);
 
     if (!allTranscripts.length) {
-      const error_msg = 'No transcripts available to copy';
-      console.log(error_msg);
-      toast.error(error_msg);
+      console.log('No transcripts available to copy');
+      toast.error(i18n.t('meetingArea.toasts.noTranscriptsToCopy'));
       return;
     }
 
@@ -83,14 +83,19 @@ export function useCopyOperations({
       return `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
     };
 
-    const header = `# Transcript of the Meeting: ${meeting.id} - ${meetingTitle ?? meeting.title}\n\n`;
-    const date = `## Date: ${new Date(meeting.created_at).toLocaleDateString()}\n\n`;
+    const header = `# ${i18n.t('meetingArea.clipboard.transcriptHeader', {
+      id: meeting.id,
+      title: meetingTitle ?? meeting.title,
+    })}\n\n`;
+    const date = `## ${i18n.t('meetingArea.clipboard.transcriptDate', {
+      date: new Date(meeting.created_at).toLocaleDateString(),
+    })}\n\n`;
     const fullTranscript = allTranscripts
       .map(t => `${formatTime(t.audio_start_time, t.timestamp)} ${t.text}  `)
       .join('\n');
 
     await navigator.clipboard.writeText(header + date + fullTranscript);
-    toast.success("Transcript copied to clipboard");
+    toast.success(i18n.t('meetingArea.toasts.transcriptCopied'));
 
     // Track copy analytics
     const wordCount = allTranscripts
@@ -152,31 +157,26 @@ export function useCopyOperations({
       // If still no summary content, show message
       if (!summaryMarkdown.trim()) {
         console.error('❌ No summary content available to copy');
-        toast.error('No summary content available to copy');
+        toast.error(i18n.t('meetingArea.toasts.noSummaryToCopy'));
         return;
       }
 
       // Build metadata header
-      const header = `# Meeting Summary: ${meetingTitle}\n\n`;
-      const metadata = `**Meeting ID:** ${meeting.id}\n**Date:** ${new Date(meeting.created_at).toLocaleDateString('en-US', {
+      const header = `# ${i18n.t('meetingArea.clipboard.summaryHeader', { title: meetingTitle })}\n\n`;
+      const dateOptions: Intl.DateTimeFormatOptions = {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      })}\n**Copied on:** ${new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })}\n\n---\n\n`;
+      };
+      const metadata = `**${i18n.t('meetingArea.clipboard.meetingIdLabel')}** ${meeting.id}\n**${i18n.t('meetingArea.clipboard.dateLabel')}** ${new Date(meeting.created_at).toLocaleDateString(i18n.language, dateOptions)}\n**${i18n.t('meetingArea.clipboard.copiedOnLabel')}** ${new Date().toLocaleDateString(i18n.language, dateOptions)}\n\n---\n\n`;
 
       const fullMarkdown = header + metadata + summaryMarkdown;
       await navigator.clipboard.writeText(fullMarkdown);
 
       console.log('✅ Successfully copied to clipboard!');
-      toast.success("Summary copied to clipboard");
+      toast.success(i18n.t('meetingArea.toasts.summaryCopied'));
 
       // Track copy analytics
       await Analytics.trackCopy('summary', {
@@ -185,7 +185,7 @@ export function useCopyOperations({
       });
     } catch (error) {
       console.error('❌ Failed to copy summary:', error);
-      toast.error("Failed to copy summary");
+      toast.error(i18n.t('meetingArea.toasts.copySummaryFailed'));
     }
   }, [aiSummary, meetingTitle, meeting, blockNoteSummaryRef]);
 

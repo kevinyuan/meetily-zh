@@ -1,0 +1,225 @@
+{
+  "onboardingArea": {
+    "welcome": {
+      "title": "欢迎使用 Meetily",
+      "description": "录制、转录、总结，全部在你的设备上完成。",
+      "features": {
+        "privacy": "你的数据永远不会离开本机",
+        "summaries": "智能摘要与洞察",
+        "offline": "离线可用，无需云服务"
+      },
+      "getStarted": "开始使用",
+      "timeEstimate": "用时不到 3 分钟"
+    },
+    "setupOverview": {
+      "title": "设置概览",
+      "description": "Meetily 需要你下载转录与摘要 AI 模型后才能正常工作。",
+      "stepLabel": "第 {{number}} 步：{{title}}",
+      "steps": {
+        "transcription": "下载转录引擎",
+        "summarization": "下载摘要引擎"
+      },
+      "summarizationTooltip": "你也可以在设置中选择 OpenAI、Claude 或 Ollama 等外部 AI 服务来生成摘要。",
+      "letsGo": "开始吧",
+      "reportIssues": "在 GitHub 上反馈问题"
+    },
+    "download": {
+      "title": "正在准备中",
+      "description": "转录引擎下载完成后，你就可以开始使用 Meetily。",
+      "transcriptionEngine": "转录引擎",
+      "summaryEngine": "摘要引擎",
+      "transcriptionSize": "约 670 MB",
+      "waiting": "等待中…",
+      "failed": "失败",
+      "errorTitle": "下载出错",
+      "tryAgain": "重试",
+      "continue": "继续",
+      "backgroundNotice": {
+        "title": "下载完成前你可以继续操作",
+        "description": "下载将在后台继续进行。"
+      },
+      "errors": {
+        "retryFailed": "重试失败",
+        "summaryNotReady": "摘要模型推荐结果尚未就绪"
+      },
+      "toasts": {
+        "retryFailedTitle": "重试下载失败",
+        "retryFailedDescription": "请检查网络连接后重试。",
+        "summaryRetryFailedTitle": "重试下载摘要模型失败",
+        "transcriptionRequiredTitle": "需要转录引擎",
+        "transcriptionRequiredDescription": "请先重新下载后再继续。",
+        "backgroundTitle": "下载将在后台继续",
+        "backgroundDescription": "你可以开始使用应用。语音识别就绪后即可开始录制。",
+        "completeFailedTitle": "完成设置失败",
+        "completeFailedDescription": "请重试。"
+      }
+    },
+    "permissions": {
+      "title": "授予权限",
+      "description": "Meetily 需要访问麦克风和系统音频才能录制会议",
+      "microphone": {
+        "title": "麦克风",
+        "description": "用于在会议中采集你的语音"
+      },
+      "systemAudio": {
+        "title": "系统音频",
+        "description": "点击“启用”以授予音频采集权限"
+      },
+      "finish": "完成设置",
+      "later": "稍后再说",
+      "warning": "没有权限将无法录制。你可以稍后在设置中授予权限。",
+      "alerts": {
+        "microphone": "请在“系统偏好设置 > 安全性与隐私 > 麦克风”中启用麦克风访问权限",
+        "systemAudio": "请在“系统设置 → 隐私与安全性 → 音频采集”中启用音频采集权限"
+      },
+      "row": {
+        "checking": "检查中…",
+        "openSettings": "打开系统设置",
+        "enable": "启用",
+        "granted": "已授予权限",
+        "denied": "权限被拒绝 - 请在系统设置中授予"
+      }
+    },
+    "toasts": {
+      "setupRequiredTitle": "请先完成设置",
+      "setupRequiredDescription": "需要先完成初始设置，才能开始录制。"
+    },
+    "dialogs": {
+      "common": {
+        "cancel": "取消",
+        "close": "关闭",
+        "tryAgain": "重试"
+      },
+      "beta": {
+        "disabledTitle": "测试版功能未启用",
+        "disabledDescription": "请在“设置 > 测试版”中启用“导入音频并重新转录”以使用此功能。"
+      },
+      "importAudio": {
+        "titleDefault": "导入音频文件",
+        "titleImporting": "正在导入音频…",
+        "titleFailed": "导入失败",
+        "titleComplete": "导入完成",
+        "descriptionDefault": "导入音频文件以创建包含转录内容的新会议",
+        "descriptionProcessing": "正在处理音频…",
+        "descriptionError": "导入过程中出错",
+        "meetingTitleLabel": "会议标题",
+        "meetingTitlePlaceholder": "请输入会议标题",
+        "chooseDifferentFile": "选择其他文件",
+        "selectFile": "选择音频文件",
+        "validating": "校验中…",
+        "advancedOptions": "高级选项",
+        "language": "语言",
+        "selectLanguage": "选择语言",
+        "parakeetLanguageNote": "Parakeet 不支持手动选择语言，它始终使用自动检测。",
+        "model": "模型",
+        "loadingModels": "正在加载模型…",
+        "selectModel": "选择模型",
+        "import": "导入",
+        "toasts": {
+          "complete": "导入完成！已创建 {{segments}} 个片段。",
+          "failedTitle": "导入失败",
+          "cancelled": "已取消导入",
+          "summaryLanguageTitle": "无法应用默认摘要语言",
+          "summaryLanguageDescription": "导入的会议已保存，但未能应用默认摘要语言。"
+        },
+        "errors": {
+          "validateFailed": "校验文件失败",
+          "startFailed": "启动导入失败"
+        }
+      },
+      "dropOverlay": {
+        "title": "拖放音频文件以导入",
+        "invalidTitle": "请拖放音频文件",
+        "invalidDescription": "支持的格式：{{formats}}"
+      },
+      "recovery": {
+        "title": "恢复中断的会议",
+        "description_one": "发现 {{count}} 个中断的会议。请选择一个会议进行预览并恢复。",
+        "description_other": "发现 {{count}} 个中断的会议。请选择一个会议进行预览并恢复。",
+        "listTitle": "中断的会议",
+        "previewTitle": "预览",
+        "transcriptCount_one": "{{count}} 条转录",
+        "transcriptCount_other": "{{count}} 条转录",
+        "audioAvailable": "音频可用",
+        "noAudio": "无音频",
+        "started": "开始于 {{date}}",
+        "transcriptsTotal": "{{total}} 条转录",
+        "loadingPreview": "正在加载预览…",
+        "previewNotice": "显示前 {{shown}} 条转录片段（共 {{total}} 条）",
+        "moreTranscripts_one": "……还有 {{count}} 条转录",
+        "moreTranscripts_other": "……还有 {{count}} 条转录",
+        "noTranscripts": "没有可预览的转录",
+        "selectMeeting": "选择一个会议进行预览",
+        "delete": "删除",
+        "deleting": "正在删除…",
+        "recover": "恢复",
+        "recovering": "正在恢复…",
+        "confirmDelete": "确定要删除此会议吗？此操作无法撤销。",
+        "recoverFailed": "恢复会议失败，请重试。",
+        "deleteFailed": "删除会议失败，请重试。"
+      },
+      "update": {
+        "titleAvailable": "有可用更新",
+        "titleDownloading": "正在下载更新",
+        "titleError": "更新出错",
+        "descriptionAvailable": "新版本（{{version}}）已发布",
+        "descriptionDownloading": "正在下载最新版本…",
+        "descriptionError": "更新过程中出错",
+        "currentVersion": "当前版本：",
+        "newVersion": "新版本：",
+        "releaseDate": "发布日期：",
+        "percentComplete": "已完成 {{percent}}%",
+        "restartNotice": "安装完成后应用将自动重启",
+        "later": "稍后",
+        "downloadAndInstall": "下载并安装",
+        "notification": {
+          "title": "有可用更新",
+          "description": "版本 {{version}} 现已发布",
+          "viewDetails": "查看详情"
+        },
+        "errors": {
+          "noLongerAvailable": "更新已不再可用",
+          "prepareFailed": "准备更新失败：{{error}}",
+          "notAvailable": "没有可用更新",
+          "getFailed": "获取更新失败：{{error}}",
+          "installFailed": "下载或安装更新失败",
+          "unknown": "未知错误"
+        },
+        "toasts": {
+          "installed": "更新安装成功，应用即将重启…",
+          "failed": "更新失败：{{error}}"
+        }
+      },
+      "database": {
+        "title": "欢迎使用 Meetily！",
+        "description": "你是否有来自旧版 Meetily 的数据？",
+        "browsePrompt": "请选择旧版 Meetily 文件夹、backend 目录或数据库文件：",
+        "browse": "浏览数据库文件",
+        "selecting": "正在选择…",
+        "detecting": "正在检测数据库…",
+        "found": "已找到数据库！",
+        "notFound": "在所选位置未找到数据库。请直接选择 Meetily 文件夹、backend 文件夹或数据库文件。",
+        "importing": "正在导入…",
+        "success": "成功！",
+        "importDatabase": "导入数据库",
+        "or": "或",
+        "startFresh": "全新开始（不导入）",
+        "toasts": {
+          "imported": "数据库导入成功！正在重新加载…",
+          "importFailed": "导入失败：{{error}}",
+          "initialized": "数据库初始化成功！正在启动应用…",
+          "initFailed": "初始化失败：{{error}}"
+        },
+        "homebrew": {
+          "title": "检测到旧版 Meetily 安装！",
+          "description": "我们发现了你此前 Meetily 安装（Python 后端版本）遗留的数据库。",
+          "size": "大小：{{size}}",
+          "question": "是否导入此前的会议、转录和摘要？",
+          "importing": "正在导入…",
+          "confirm": "是，导入",
+          "decline": "否，手动浏览"
+        }
+      }
+    }
+  }
+}

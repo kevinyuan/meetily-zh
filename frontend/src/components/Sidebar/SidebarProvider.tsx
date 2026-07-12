@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import Analytics from '@/lib/analytics';
+import i18n from '@/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 
@@ -65,7 +67,8 @@ export const useSidebar = () => {
 };
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [currentMeeting, setCurrentMeeting] = useState<CurrentMeeting | null>({ id: 'intro-call', title: '+ New Call' });
+  const { t } = useTranslation();
+  const [currentMeeting, setCurrentMeeting] = useState<CurrentMeeting | null>({ id: 'intro-call', title: i18n.t('recordingArea.sidebar.newCall') });
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [meetings, setMeetings] = useState<CurrentMeeting[]>([]);
   const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>([]);
@@ -116,7 +119,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const baseItems: SidebarItem[] = [
     {
       id: 'meetings',
-      title: 'Meeting Notes',
+      title: t('recordingArea.sidebar.meetingNotes'),
       type: 'folder' as const,
       children: [
         ...meetings.map(meeting => ({ id: meeting.id, title: meeting.title, type: 'file' as const }))
@@ -132,15 +135,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   // Update current meeting when on home page
   useEffect(() => {
     if (pathname === '/') {
-      setCurrentMeeting({ id: 'intro-call', title: '+ New Call' });
+      setCurrentMeeting({ id: 'intro-call', title: t('recordingArea.sidebar.newCall') });
     }
     setSidebarItems(baseItems);
-  }, [pathname]);
+  }, [pathname, t]);
 
   // Update sidebar items when meetings change
   useEffect(() => {
     setSidebarItems(baseItems);
-  }, [meetings]);
+  }, [meetings, t]);
 
   // Function to handle recording toggle from sidebar
   const handleRecordingToggle = () => {
@@ -214,7 +217,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
         });
         onUpdate({
           status: 'error',
-          error: 'Summary generation timed out after 15 minutes. Please try again or check your model configuration.'
+          error: i18n.t('recordingArea.sidebar.summaryTimeout')
         });
         return;
       }
@@ -252,7 +255,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
         // Report error to callback
         onUpdate({
           status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : i18n.t('recordingArea.common.unknownError')
         });
         clearInterval(pollInterval);
         setActiveSummaryPolls(prev => {

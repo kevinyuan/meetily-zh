@@ -4,6 +4,7 @@ import { BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummary
 import { CurrentMeeting, useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
+import i18n from '@/i18n';
 
 interface UseMeetingDataProps {
   meeting: any;
@@ -15,7 +16,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
   // State
   // Use prop directly since summary generation fetches transcripts independently
   const transcripts = meeting.transcripts;
-  const [meetingTitle, setMeetingTitle] = useState(meeting.title || '+ New Call');
+  const [meetingTitle, setMeetingTitle] = useState(meeting.title || i18n.t('meetingArea.meetingData.newCall'));
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isTitleDirty, setIsTitleDirty] = useState(false);
   const [aiSummary, setAiSummary] = useState<Summary | null>(summaryData);
@@ -67,7 +68,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('Failed to save meeting title: Unknown error');
+        setError(i18n.t('meetingArea.meetingData.saveTitleFailed'));
       }
       return false;
     }
@@ -111,7 +112,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('Failed to save meeting summary: Unknown error');
+        setError(i18n.t('meetingArea.meetingData.saveSummaryFailed'));
       }
     }
   }, [meeting.id, meetingTitle]);
@@ -132,10 +133,10 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
         await handleSaveSummary(aiSummary);
       }
 
-      toast.success("Changes saved successfully");
+      toast.success(i18n.t('meetingArea.toasts.changesSaved'));
     } catch (error) {
       console.error('Failed to save changes:', error);
-      toast.error("Failed to save changes", { description: String(error) });
+      toast.error(i18n.t('meetingArea.toasts.changesSaveFailed'), { description: String(error) });
     } finally {
       setIsSaving(false);
     }

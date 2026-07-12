@@ -1,0 +1,138 @@
+{
+  "modelsArea": {
+    "common": {
+      "recommended": "Recommended",
+      "ready": "Ready",
+      "selected": "Selected",
+      "corrupted": "Corrupted",
+      "error": "Error",
+      "downloading": "Downloading...",
+      "download": "Download",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "retry": "Retry",
+      "redownload": "Re-download",
+      "deleteToFreeSpace": "Delete model to free up space",
+      "deleteModel": "Delete model",
+      "cancelDownload": "Cancel download",
+      "loadFailed": "Failed to load models",
+      "unknownError": "Unknown error",
+      "accuracy": "{{accuracy}} accuracy",
+      "processing": "{{speed}} processing",
+      "usingForTranscription": "Using {{model}} for transcription"
+    },
+    "accuracyLabel": {
+      "High": "High",
+      "Good": "Good",
+      "Decent": "Decent"
+    },
+    "speedLabel": {
+      "Slow": "Slow",
+      "Medium": "Medium",
+      "Fast": "Fast",
+      "Very Fast": "Very Fast",
+      "Ultra Fast": "Ultra Fast"
+    },
+    "toast": {
+      "loadModelsFailed": "Failed to load transcription models",
+      "modelReady": "{{model}} ready!",
+      "modelReadyDescription": "Model downloaded and ready to use",
+      "downloadFailed": "Failed to download {{model}}",
+      "downloading": "Downloading {{model}}...",
+      "downloadingDescription": "This may take a few minutes",
+      "downloadCancelled": "{{model}} download cancelled",
+      "cancelFailed": "Failed to cancel download",
+      "switchedTo": "Switched to {{model}}",
+      "deleted": "{{model}} deleted",
+      "deletedDescription": "Model removed to free up space",
+      "deleteFailedDescription": "Delete failed",
+      "downloadFailedDescription": "Download failed"
+    },
+    "whisper": {
+      "advancedModels": "Advanced Models",
+      "displayName": "Whisper {{model}}",
+      "tagline": "{{speed}} • {{feature}}",
+      "featureOptimized": "{{feature}}, optimized",
+      "featureUltraFast": "{{feature}}, ultra fast",
+      "badge": {
+        "fullPrecision": "Full Precision",
+        "balancedPlus": "Balanced+",
+        "balanced": "Balanced",
+        "fast": "Fast",
+        "standard": "Standard"
+      },
+      "speed": {
+        "realTime": "Real time",
+        "fastProcessing": "Fast processing",
+        "moderateSpeed": "Moderate speed",
+        "slowerProcessing": "Slower processing"
+      },
+      "feature": {
+        "mostAccurate": "Most accurate",
+        "bestAccuracyWithSpeed": "Best accuracy with speed",
+        "professionalQuality": "Professional quality",
+        "balancedQuality": "Balanced quality",
+        "goodAccuracy": "Good accuracy",
+        "fastestOption": "Fastest option"
+      }
+    },
+    "parakeet": {
+      "taglines": {
+        "lightning": "Real time • Best for speed, great accuracy",
+        "compact": "Real time • Smaller size",
+        "precise": "20x real-time • Higher accuracy"
+      }
+    },
+    "sensevoice": {
+      "tagline": "60x real-time • Chinese-optimised, multilingual",
+      "noneAvailable": "No SenseVoice models available",
+      "noneForLanguage": "No model supports {{language}} yet",
+      "tryAgain": "Try again or check your connection"
+    },
+    "builtin": {
+      "title": "Built-in AI Models",
+      "loading": "Loading models...",
+      "empty": "No models found. Download a model to get started with Built-in AI.",
+      "downloadSuccess": "Model {{model}} downloaded successfully",
+      "cancelled": "Download of {{model}} cancelled",
+      "deleted": "Model {{model}} deleted",
+      "corruptedHint": "File is corrupted. Retry download or delete.",
+      "genericError": "An error occurred",
+      "tokens": "{{tokens}} tokens",
+      "progress": "{{downloaded}} MiB / {{total}} MiB",
+      "speed": "({{speed}} MiB/s)"
+    },
+    "progress": {
+      "finalizing": "Finalizing...",
+      "downloadingModel": "Downloading {{model}}",
+      "percentComplete": "{{percent}}% complete",
+      "completedLoading": "✓ Download completed, loading model...",
+      "summaryAvailable": "📦 {{downloaded}} of {{total}} models available",
+      "summaryTotal": "💾 {{size}} total",
+      "summaryLocal": "✓ Models run locally - no internet required for transcription"
+    },
+    "downloadToast": {
+      "transcriptionModel": "Transcription Model (Parakeet)",
+      "summaryModel": "Summary Model ({{model}})",
+      "complete": "Download complete",
+      "cancelled": "Download cancelled",
+      "failed": "Download failed",
+      "progress": "{{downloaded}} / {{total}} {{unit}}",
+      "speed": "{{speed}} {{unit}}/s",
+      "errors": {
+        "network": "Network error - Check your internet connection",
+        "server": "Server error - Download temporarily unavailable",
+        "storage": "Storage error - Check available disk space",
+        "validation": "File validation failed - Please retry download"
+      }
+    },
+    "status": {
+      "available": "Available",
+      "downloading": "Downloading {{progress}}%",
+      "notDownloaded": "Not Downloaded",
+      "corrupted": "Corrupted",
+      "error": "Error",
+      "unknown": "Unknown"
+    }
+  }
+}

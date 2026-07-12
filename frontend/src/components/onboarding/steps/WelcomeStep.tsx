@@ -1,31 +1,33 @@
 import React from 'react';
 import { Lock, Sparkles, Cpu } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export function WelcomeStep() {
   const { goNext } = useOnboarding();
+  const { t } = useTranslation();
 
   const features = [
     {
       icon: Lock,
-      title: 'Your data never leaves your device',
+      title: t('onboardingArea.welcome.features.privacy'),
     },
     {
       icon: Sparkles,
-      title: 'Intelligent summaries & insights',
+      title: t('onboardingArea.welcome.features.summaries'),
     },
     {
       icon: Cpu,
-      title: 'Works offline, no cloud required',
+      title: t('onboardingArea.welcome.features.offline'),
     },
   ];
 
   return (
     <OnboardingContainer
-      title="Welcome to Meetily"
-      description="Record. Transcribe. Summarize. All on your device."
+      title={t('onboardingArea.welcome.title')}
+      description={t('onboardingArea.welcome.description')}
       step={1}
       hideProgress={true}
     >
@@ -56,9 +58,9 @@ export function WelcomeStep() {
             onClick={goNext}
             className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
           >
-            Get Started
+            {t('onboardingArea.welcome.getStarted')}
           </Button>
-          <p className="text-xs text-center text-gray-500">Takes less than 3 minutes</p>
+          <p className="text-xs text-center text-gray-500">{t('onboardingArea.welcome.timeEstimate')}</p>
         </div>
       </div>
     </OnboardingContainer>

@@ -35,7 +35,7 @@ export interface TranscriptSettingsProps {
 }
 
 export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelConfig, onModelSelect }: TranscriptSettingsProps) {
-    const { i18n } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [apiKey, setApiKey] = useState<string | null>(transcriptModelConfig.apiKey || null);
     const [showApiKey, setShowApiKey] = useState<boolean>(false);
     const [isApiKeyLocked, setIsApiKeyLocked] = useState<boolean>(true);
@@ -167,7 +167,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
 
                     <div>
                         <Label className="block text-sm font-medium text-gray-700 mb-1">
-                            Transcript Model
+                            {t('settingsArea.transcript.modelLabel')}
                         </Label>
                         <div className="flex space-x-2 mx-1">
                             <Select
@@ -181,17 +181,17 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 }}
                             >
                                 <SelectTrigger className='focus:ring-1 focus:ring-blue-500 focus:border-blue-500'>
-                                    <SelectValue placeholder="Select provider" />
+                                    <SelectValue placeholder={t('settingsArea.common.selectProvider')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {visibleProviders.includes('parakeet') && (
-                                        <SelectItem value="parakeet">⚡ Parakeet (Recommended - Real-time / Accurate)</SelectItem>
+                                        <SelectItem value="parakeet">{t('settingsArea.transcript.providers.parakeet')}</SelectItem>
                                     )}
                                     {visibleProviders.includes('localWhisper') && (
-                                        <SelectItem value="localWhisper">🏠 Local Whisper (High Accuracy)</SelectItem>
+                                        <SelectItem value="localWhisper">{t('settingsArea.transcript.providers.localWhisper')}</SelectItem>
                                     )}
                                     {visibleProviders.includes('senseVoice') && (
-                                        <SelectItem value="senseVoice">🀄 SenseVoice (Chinese + EN/JA/KO/Cantonese)</SelectItem>
+                                        <SelectItem value="senseVoice">{t('settingsArea.transcript.providers.senseVoice')}</SelectItem>
                                     )}
                                     {/* <SelectItem value="deepgram">☁️ Deepgram (Backup)</SelectItem>
                                     <SelectItem value="elevenLabs">☁️ ElevenLabs</SelectItem>
@@ -209,7 +209,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     }}
                                 >
                                     <SelectTrigger className='focus:ring-1 focus:ring-blue-500 focus:border-blue-500'>
-                                        <SelectValue placeholder="Select model" />
+                                        <SelectValue placeholder={t('settingsArea.common.selectModel')} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {modelOptions[uiProvider].map((model) => (
@@ -224,8 +224,8 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                         {selectedProviderUnsupported && (
                             <p className="mx-1 mt-2 text-sm text-amber-600">
                                 {uiProvider === 'parakeet'
-                                    ? 'Parakeet does not support Chinese. Pick SenseVoice or Local Whisper to transcribe Chinese.'
-                                    : 'The selected engine does not support the filtered language.'}
+                                    ? t('settingsArea.transcript.unsupported.parakeet')
+                                    : t('settingsArea.transcript.unsupported.generic')}
                             </p>
                         )}
                     </div>
@@ -265,7 +265,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                     {requiresApiKey && (
                         <div>
                             <Label className="block text-sm font-medium text-gray-700 mb-1">
-                                API Key
+                                {t('settingsArea.common.apiKey')}
                             </Label>
                             <div className="relative mx-1">
                                 <Input
@@ -276,7 +276,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     onChange={(e) => setApiKey(e.target.value)}
                                     disabled={isApiKeyLocked}
                                     onClick={handleInputClick}
-                                    placeholder="Enter your API key"
+                                    placeholder={t('settingsArea.common.apiKeyPlaceholder')}
                                 />
                                 {isApiKeyLocked && (
                                     <div
@@ -292,7 +292,7 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                         onClick={() => setIsApiKeyLocked(!isApiKeyLocked)}
                                         className={`transition-colors duration-200 ${isLockButtonVibrating ? 'animate-vibrate text-red-500' : ''
                                             }`}
-                                        title={isApiKeyLocked ? "Unlock to edit" : "Lock to prevent editing"}
+                                        title={isApiKeyLocked ? t('settingsArea.common.unlockToEdit') : t('settingsArea.common.lockToPreventEditing')}
                                     >
                                         {isApiKeyLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                                     </Button>

@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 // Types for Built-in AI (Summary Models) integration
 export interface BuiltInModelInfo {
   name: string;
@@ -51,12 +53,12 @@ export function getStatusColor(status: BuiltInModelStatus): string {
 
 export function getStatusLabel(status: BuiltInModelStatus): string {
   switch (status.type) {
-    case 'available': return 'Available';
-    case 'downloading': return `Downloading ${status.progress}%`;
-    case 'not_downloaded': return 'Not Downloaded';
-    case 'corrupted': return 'Corrupted';
-    case 'error': return 'Error';
-    default: return 'Unknown';
+    case 'available': return i18n.t('modelsArea.status.available');
+    case 'downloading': return i18n.t('modelsArea.status.downloading', { progress: status.progress });
+    case 'not_downloaded': return i18n.t('modelsArea.status.notDownloaded');
+    case 'corrupted': return i18n.t('modelsArea.status.corrupted');
+    case 'error': return i18n.t('modelsArea.status.error');
+    default: return i18n.t('modelsArea.status.unknown');
   }
 }
 

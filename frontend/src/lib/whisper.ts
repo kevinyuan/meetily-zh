@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 // Types for whisper-rs integration
 export interface ModelInfo {
   name: string;
@@ -177,15 +179,15 @@ export function getModelPerformanceBadge(modelName: string): { label: string; co
   const type = getModelType(modelName);
   switch (type) {
     case 'f16':
-      return { label: 'Full Precision', color: 'blue' };
+      return { label: i18n.t('modelsArea.whisper.badge.fullPrecision'), color: 'blue' };
     case 'q5_1':
-      return { label: 'Balanced+', color: 'green' };
+      return { label: i18n.t('modelsArea.whisper.badge.balancedPlus'), color: 'green' };
     case 'q5_0':
-      return { label: 'Balanced', color: 'green' };
+      return { label: i18n.t('modelsArea.whisper.badge.balanced'), color: 'green' };
     case 'q4_0':
-      return { label: 'Fast', color: 'orange' };
+      return { label: i18n.t('modelsArea.whisper.badge.fast'), color: 'orange' };
     default:
-      return { label: 'Standard', color: 'gray' };
+      return { label: i18n.t('modelsArea.whisper.badge.standard'), color: 'gray' };
   }
 }
 
@@ -198,46 +200,57 @@ export function getModelTagline(modelName: string, speed: ProcessingSpeed, accur
   let speedText = '';
   switch (speed) {
     case 'Very Fast':
-      speedText = 'Real time';
+      speedText = i18n.t('modelsArea.whisper.speed.realTime');
       break;
     case 'Fast':
-      speedText = 'Fast processing';
+      speedText = i18n.t('modelsArea.whisper.speed.fastProcessing');
       break;
     case 'Medium':
-      speedText = 'Moderate speed';
+      speedText = i18n.t('modelsArea.whisper.speed.moderateSpeed');
       break;
     case 'Slow':
-      speedText = 'Slower processing';
+      speedText = i18n.t('modelsArea.whisper.speed.slowerProcessing');
       break;
   }
 
   // Key feature based on model and accuracy
   let featureText = '';
   if (baseName === 'large-v3') {
-    featureText = 'Most accurate';
+    featureText = i18n.t('modelsArea.whisper.feature.mostAccurate');
   } else if (baseName === 'large-v3-turbo') {
-    featureText = 'Best accuracy with speed';
+    featureText = i18n.t('modelsArea.whisper.feature.bestAccuracyWithSpeed');
   } else if (baseName === 'medium') {
-    featureText = accuracy === 'High' ? 'Professional quality' : 'Balanced quality';
+    featureText = accuracy === 'High'
+      ? i18n.t('modelsArea.whisper.feature.professionalQuality')
+      : i18n.t('modelsArea.whisper.feature.balancedQuality');
   } else if (baseName === 'small') {
-    featureText = 'Good accuracy';
+    featureText = i18n.t('modelsArea.whisper.feature.goodAccuracy');
   } else if (baseName === 'base') {
-    featureText = 'Balanced quality';
+    featureText = i18n.t('modelsArea.whisper.feature.balancedQuality');
   } else if (baseName === 'tiny') {
-    featureText = 'Fastest option';
+    featureText = i18n.t('modelsArea.whisper.feature.fastestOption');
   }
 
   // Add quantization note if applicable
   if (isQuantized) {
     const quantType = getModelType(modelName);
     if (quantType === 'q5_0') {
-      featureText += ', optimized';
+      featureText = i18n.t('modelsArea.whisper.featureOptimized', { feature: featureText });
     } else if (quantType === 'q4_0') {
-      featureText += ', ultra fast';
+      featureText = i18n.t('modelsArea.whisper.featureUltraFast', { feature: featureText });
     }
   }
 
-  return `${speedText} • ${featureText}`;
+  return i18n.t('modelsArea.whisper.tagline', { speed: speedText, feature: featureText });
+}
+
+// Localised labels for the accuracy/speed values the Rust backend reports.
+export function getAccuracyLabel(accuracy: ModelAccuracy): string {
+  return i18n.t(`modelsArea.accuracyLabel.${accuracy}`, { defaultValue: accuracy });
+}
+
+export function getSpeedLabel(speed: ProcessingSpeed): string {
+  return i18n.t(`modelsArea.speedLabel.${speed}`, { defaultValue: speed });
 }
 
 // Group models by their base name for better UI organization

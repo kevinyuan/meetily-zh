@@ -1,0 +1,185 @@
+{
+  "recordingArea": {
+    "common": {
+      "unknownError": "未知错误",
+      "unknownErrorOccurred": "发生未知错误",
+      "viewMeeting": "查看会议"
+    },
+    "controls": {
+      "processing": "正在处理录音…",
+      "start": "开始录音",
+      "pause": "暂停录音",
+      "resume": "继续录音",
+      "stop": "停止录音",
+      "pausing": "正在暂停…",
+      "resuming": "正在继续…",
+      "stopping": "正在停止…",
+      "validating": "正在校验语音识别…",
+      "closeAlert": "关闭提示"
+    },
+    "alerts": {
+      "initFailed": "录音初始化失败。请查看控制台了解详情。",
+      "pauseFailed": "暂停录音失败。请查看控制台了解详情。",
+      "resumeFailed": "继续录音失败。请查看控制台了解详情。",
+      "startFailed": "开始录音失败。请查看控制台了解详情。"
+    },
+    "deviceErrors": {
+      "microphone": {
+        "title": "麦克风不可用",
+        "message": "无法访问麦克风。请检查：\n• 麦克风已连接\n• 应用已获得麦克风权限\n• 没有其他应用正在占用麦克风"
+      },
+      "systemAudio": {
+        "title": "系统音频不可用",
+        "message": "无法采集系统音频。请检查：\n• 已安装虚拟音频设备（如 BlackHole）\n• 应用已获得屏幕录制权限（macOS）\n• 系统音频已正确配置"
+      },
+      "permission": {
+        "title": "需要权限",
+        "message": "录音需要相应权限。请：\n• 在系统设置中授予麦克风访问权限\n• 授予屏幕录制权限以采集系统音频（macOS）\n• 授予权限后重新启动应用"
+      },
+      "generic": {
+        "title": "录音失败",
+        "message": "无法开始录音。请检查音频设备设置后重试。"
+      }
+    },
+    "status": {
+      "finalizing": "正在完成转录…",
+      "saving": "正在保存转录内容…"
+    },
+    "statusBar": {
+      "recording": "录音中",
+      "paused": "已暂停"
+    },
+    "transcript": {
+      "copy": "复制",
+      "copyTooltip": "复制转录内容",
+      "language": "语言",
+      "languageTooltip": "语言"
+    },
+    "permissions": {
+      "titleBoth": "需要权限",
+      "titleMicrophone": "需要麦克风权限",
+      "titleSystemAudio": "需要系统音频权限",
+      "openMicrophoneSettings": "打开麦克风设置",
+      "openScreenRecordingSettings": "打开屏幕录制设置",
+      "recheck": "重新检查",
+      "microphoneDescription": "Meetily 需要访问麦克风才能录制会议。未检测到任何麦克风设备。",
+      "pleaseCheck": "请检查：",
+      "microphoneChecks": {
+        "connected": "麦克风已连接并已开启",
+        "granted": "已在系统设置中授予麦克风权限",
+        "exclusive": "没有其他应用独占使用麦克风"
+      },
+      "systemAudioWithMicrophone": "系统音频采集不可用。您仍可使用麦克风录音，但不会采集电脑播放的声音。",
+      "systemAudioWithoutMicrophone": "系统音频采集同样不可用。",
+      "macosStepsTitle": "在 macOS 上启用系统音频：",
+      "macosSteps": {
+        "virtualDevice": "安装虚拟音频设备（例如 BlackHole 2ch）",
+        "screenRecording": "为 Meetily 授予屏幕录制权限",
+        "routing": "在「音频 MIDI 设置」中配置音频路由"
+      }
+    },
+    "bluetooth": {
+      "title": "检测到蓝牙播放",
+      "description": "您正在使用 <b>{{device}}</b> 播放。通过蓝牙设备播放时，录音可能听起来失真或语速偏快。为了准确回放，请使用<b>电脑扬声器</b>或<b>有线耳机</b>。",
+      "learnMore": "了解原因 →",
+      "dismiss": "关闭提示"
+    },
+    "chunkProgress": {
+      "title": "处理进度",
+      "paused": "已暂停",
+      "pause": "暂停",
+      "resume": "继续",
+      "cancel": "取消",
+      "calculating": "计算中…",
+      "chunksCompleted": "已完成 {{completed}} / {{total}} 个音频块",
+      "stats": {
+        "completed": "已完成",
+        "processing": "处理中",
+        "pending": "等待中",
+        "failed": "失败"
+      },
+      "estimatedRemaining": "预计剩余时间：{{time}}",
+      "recentChunks": "最近的音频块（{{shown}} / {{total}}）",
+      "chunkLabel": "音频块 {{id}}",
+      "chunkError": "错误：{{message}}",
+      "complete": "处理完成！全部 {{total}} 个音频块均已转录。",
+      "duration": {
+        "hoursMinutesSeconds": "{{hours}} 小时 {{minutes}} 分 {{seconds}} 秒",
+        "minutesSeconds": "{{minutes}} 分 {{seconds}} 秒",
+        "seconds": "{{seconds}} 秒"
+      },
+      "mini": {
+        "processing": "处理中",
+        "chunks": "{{completed}} / {{total}} 个音频块",
+        "processingCount": "（{{processing}} 个处理中）"
+      }
+    },
+    "sidebar": {
+      "searchPlaceholder": "搜索会议内容…",
+      "searching": "搜索中…",
+      "match": "匹配：",
+      "home": "首页",
+      "meetingNotes": "会议笔记",
+      "newCall": "+ 新建通话",
+      "startRecording": "开始录音",
+      "recordingInProgress": "正在录音…",
+      "importAudio": "导入音频",
+      "settings": "设置",
+      "editMeetingTitle": "编辑会议标题",
+      "deleteMeeting": "删除会议",
+      "deleteConfirm": "确定要删除这个会议吗？此操作无法撤销。",
+      "summaryTimeout": "生成摘要超时（已等待 15 分钟）。请重试或检查您的模型配置。",
+      "editModal": {
+        "title": "编辑会议标题",
+        "label": "会议标题",
+        "placeholder": "请输入会议标题",
+        "cancel": "取消",
+        "save": "保存"
+      },
+      "toasts": {
+        "deleteSuccess": "会议删除成功",
+        "deleteSuccessDescription": "所有相关数据已被移除",
+        "deleteError": "删除会议失败",
+        "titleEmpty": "会议标题不能为空",
+        "titleUpdated": "会议标题更新成功",
+        "titleUpdateError": "更新会议标题失败"
+      }
+    },
+    "nav": {
+      "about": "关于",
+      "aboutMeetily": "关于 Meetily",
+      "logoAlt": "标志"
+    },
+    "recovery": {
+      "successTitle": "会议恢复成功！",
+      "successWithAudio": "已恢复转录内容和音频",
+      "successWithoutAudio": "已恢复转录内容（无可用音频）",
+      "errorTitle": "恢复会议失败"
+    },
+    "toasts": {
+      "modelDownloading": {
+        "title": "模型正在下载中",
+        "description": "请等待转录模型下载完成后再开始录音。"
+      },
+      "modelNotReady": {
+        "title": "转录模型尚未就绪",
+        "description": "请先下载转录模型，然后再开始录音。"
+      },
+      "modelSetupRequired": "需要先设置转录模型",
+      "summaryLanguageApplyFailed": {
+        "title": "无法应用默认摘要语言",
+        "description": "会议已保存，但未能应用默认摘要语言。"
+      },
+      "summaryLanguageDetectFailed": {
+        "title": "无法检测摘要语言",
+        "description": "会议已保存，但「自动」未能检测出摘要语言。"
+      },
+      "saveSuccess": {
+        "title": "录音保存成功！",
+        "description": "已保存 {{segments}} 条转录片段。"
+      },
+      "saveError": "保存会议失败",
+      "noMeetingId": "保存操作未返回会议 ID"
+    }
+  }
+}

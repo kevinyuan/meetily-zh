@@ -18,6 +18,12 @@
   "summaryModels": {
     "strongFor": "Strong at {{language}}"
   },
+  "toasts": {
+    "transcriptCopied": "Transcript copied to clipboard",
+    "transcriptListenerFailed": "Failed to setup transcript listener. Check console for details.",
+    "summaryLanguageFailed": "Could not apply default summary language",
+    "modelReady": "Model ready! Closing window..."
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",

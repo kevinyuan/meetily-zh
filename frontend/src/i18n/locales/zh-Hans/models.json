@@ -1,0 +1,138 @@
+{
+  "modelsArea": {
+    "common": {
+      "recommended": "推荐",
+      "ready": "已就绪",
+      "selected": "已选择",
+      "corrupted": "已损坏",
+      "error": "错误",
+      "downloading": "下载中…",
+      "download": "下载",
+      "cancel": "取消",
+      "delete": "删除",
+      "retry": "重试",
+      "redownload": "重新下载",
+      "deleteToFreeSpace": "删除模型以释放空间",
+      "deleteModel": "删除模型",
+      "cancelDownload": "取消下载",
+      "loadFailed": "加载模型失败",
+      "unknownError": "未知错误",
+      "accuracy": "准确度：{{accuracy}}",
+      "processing": "处理速度：{{speed}}",
+      "usingForTranscription": "正在使用 {{model}} 进行转录"
+    },
+    "accuracyLabel": {
+      "High": "高",
+      "Good": "良好",
+      "Decent": "一般"
+    },
+    "speedLabel": {
+      "Slow": "慢",
+      "Medium": "中等",
+      "Fast": "快",
+      "Very Fast": "非常快",
+      "Ultra Fast": "极快"
+    },
+    "toast": {
+      "loadModelsFailed": "加载转录模型失败",
+      "modelReady": "{{model}} 已就绪！",
+      "modelReadyDescription": "模型已下载完成，可以使用了",
+      "downloadFailed": "下载 {{model}} 失败",
+      "downloading": "正在下载 {{model}}…",
+      "downloadingDescription": "这可能需要几分钟",
+      "downloadCancelled": "已取消下载 {{model}}",
+      "cancelFailed": "取消下载失败",
+      "switchedTo": "已切换到 {{model}}",
+      "deleted": "已删除 {{model}}",
+      "deletedDescription": "已移除模型以释放空间",
+      "deleteFailedDescription": "删除失败",
+      "downloadFailedDescription": "下载失败"
+    },
+    "whisper": {
+      "advancedModels": "高级模型",
+      "displayName": "Whisper {{model}}",
+      "tagline": "{{speed}} • {{feature}}",
+      "featureOptimized": "{{feature}}，已优化",
+      "featureUltraFast": "{{feature}}，速度极快",
+      "badge": {
+        "fullPrecision": "全精度",
+        "balancedPlus": "均衡+",
+        "balanced": "均衡",
+        "fast": "快速",
+        "standard": "标准"
+      },
+      "speed": {
+        "realTime": "实时",
+        "fastProcessing": "处理快速",
+        "moderateSpeed": "速度适中",
+        "slowerProcessing": "处理较慢"
+      },
+      "feature": {
+        "mostAccurate": "准确度最高",
+        "bestAccuracyWithSpeed": "兼顾准确度与速度",
+        "professionalQuality": "专业品质",
+        "balancedQuality": "品质均衡",
+        "goodAccuracy": "准确度良好",
+        "fastestOption": "最快选项"
+      }
+    },
+    "parakeet": {
+      "taglines": {
+        "lightning": "实时 • 速度最佳，准确度出色",
+        "compact": "实时 • 体积更小",
+        "precise": "20 倍实时 • 准确度更高"
+      }
+    },
+    "sensevoice": {
+      "tagline": "60 倍实时 • 中文优化，支持多语言",
+      "noneAvailable": "暂无可用的 SenseVoice 模型",
+      "noneForLanguage": "暂无支持{{language}}的模型",
+      "tryAgain": "请重试或检查网络连接"
+    },
+    "builtin": {
+      "title": "内置 AI 模型",
+      "loading": "正在加载模型…",
+      "empty": "未找到模型。下载一个模型即可开始使用内置 AI。",
+      "downloadSuccess": "模型 {{model}} 下载成功",
+      "cancelled": "已取消下载 {{model}}",
+      "deleted": "已删除模型 {{model}}",
+      "corruptedHint": "文件已损坏。请重新下载或删除。",
+      "genericError": "发生错误",
+      "tokens": "{{tokens}} 个 token",
+      "progress": "{{downloaded}} MiB / {{total}} MiB",
+      "speed": "({{speed}} MiB/s)"
+    },
+    "progress": {
+      "finalizing": "正在完成…",
+      "downloadingModel": "正在下载 {{model}}",
+      "percentComplete": "已完成 {{percent}}%",
+      "completedLoading": "✓ 下载完成，正在加载模型…",
+      "summaryAvailable": "📦 已下载 {{downloaded}} / {{total}} 个模型",
+      "summaryTotal": "💾 共 {{size}}",
+      "summaryLocal": "✓ 模型在本地运行 — 转录无需联网"
+    },
+    "downloadToast": {
+      "transcriptionModel": "转录模型（Parakeet）",
+      "summaryModel": "摘要模型（{{model}}）",
+      "complete": "下载完成",
+      "cancelled": "已取消下载",
+      "failed": "下载失败",
+      "progress": "{{downloaded}} / {{total}} {{unit}}",
+      "speed": "{{speed}} {{unit}}/s",
+      "errors": {
+        "network": "网络错误 — 请检查网络连接",
+        "server": "服务器错误 — 暂时无法下载",
+        "storage": "存储错误 — 请检查磁盘可用空间",
+        "validation": "文件校验失败 — 请重新下载"
+      }
+    },
+    "status": {
+      "available": "可用",
+      "downloading": "下载中 {{progress}}%",
+      "notDownloaded": "未下载",
+      "corrupted": "已损坏",
+      "error": "错误",
+      "unknown": "未知"
+    }
+  }
+}

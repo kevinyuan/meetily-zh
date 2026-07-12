@@ -1,0 +1,225 @@
+{
+  "onboardingArea": {
+    "welcome": {
+      "title": "Welcome to Meetily",
+      "description": "Record. Transcribe. Summarize. All on your device.",
+      "features": {
+        "privacy": "Your data never leaves your device",
+        "summaries": "Intelligent summaries & insights",
+        "offline": "Works offline, no cloud required"
+      },
+      "getStarted": "Get Started",
+      "timeEstimate": "Takes less than 3 minutes"
+    },
+    "setupOverview": {
+      "title": "Setup Overview",
+      "description": "Meetily requires that you download the Transcription & Summarization AI models for the software to work.",
+      "stepLabel": "Step {{number}} : {{title}}",
+      "steps": {
+        "transcription": "Download Transcription Engine",
+        "summarization": "Download Summarization Engine"
+      },
+      "summarizationTooltip": "You can also select external AI providers like OpenAI, Claude, or Ollama for summary generation in settings.",
+      "letsGo": "Let's Go",
+      "reportIssues": "Report issues on GitHub"
+    },
+    "download": {
+      "title": "Getting things ready",
+      "description": "You can start using Meetily after downloading the Transcription Engine.",
+      "transcriptionEngine": "Transcription Engine",
+      "summaryEngine": "Summary Engine",
+      "transcriptionSize": "~670 MB",
+      "waiting": "Waiting...",
+      "failed": "Failed",
+      "errorTitle": "Download Error",
+      "tryAgain": "Try Again",
+      "continue": "Continue",
+      "backgroundNotice": {
+        "title": "You can continue while this finishes",
+        "description": "Download will continue in the background."
+      },
+      "errors": {
+        "retryFailed": "Retry failed",
+        "summaryNotReady": "Summary model recommendation is not ready yet"
+      },
+      "toasts": {
+        "retryFailedTitle": "Download retry failed",
+        "retryFailedDescription": "Please check your connection and try again.",
+        "summaryRetryFailedTitle": "Summary model download retry failed",
+        "transcriptionRequiredTitle": "Transcription engine required",
+        "transcriptionRequiredDescription": "Please retry the download before continuing.",
+        "backgroundTitle": "Downloads will continue in the background",
+        "backgroundDescription": "You can start using the app. Recording will be available once speech recognition is ready.",
+        "completeFailedTitle": "Failed to complete setup",
+        "completeFailedDescription": "Please try again."
+      }
+    },
+    "permissions": {
+      "title": "Grant Permissions",
+      "description": "Meetily needs access to your microphone and system audio to record meetings",
+      "microphone": {
+        "title": "Microphone",
+        "description": "Required to capture your voice during meetings"
+      },
+      "systemAudio": {
+        "title": "System Audio",
+        "description": "Click Enable to grant Audio Capture permission"
+      },
+      "finish": "Finish Setup",
+      "later": "I'll do this later",
+      "warning": "Recording won't work without permissions. You can grant them later in settings.",
+      "alerts": {
+        "microphone": "Please enable microphone access in System Preferences > Security & Privacy > Microphone",
+        "systemAudio": "Please enable Audio Capture in System Settings → Privacy & Security → Audio Capture"
+      },
+      "row": {
+        "checking": "Checking...",
+        "openSettings": "Open Settings",
+        "enable": "Enable",
+        "granted": "Access Granted",
+        "denied": "Access Denied - Please grant in System Settings"
+      }
+    },
+    "toasts": {
+      "setupRequiredTitle": "Please complete setup first",
+      "setupRequiredDescription": "You need to finish onboarding before you can start recording."
+    },
+    "dialogs": {
+      "common": {
+        "cancel": "Cancel",
+        "close": "Close",
+        "tryAgain": "Try Again"
+      },
+      "beta": {
+        "disabledTitle": "Beta feature disabled",
+        "disabledDescription": "Enable \"Import Audio & Retranscribe\" in Settings > Beta to use this feature."
+      },
+      "importAudio": {
+        "titleDefault": "Import Audio File",
+        "titleImporting": "Importing Audio...",
+        "titleFailed": "Import Failed",
+        "titleComplete": "Import Complete",
+        "descriptionDefault": "Import an audio file to create a new meeting with transcripts",
+        "descriptionProcessing": "Processing audio...",
+        "descriptionError": "An error occurred during import",
+        "meetingTitleLabel": "Meeting Title",
+        "meetingTitlePlaceholder": "Enter meeting title",
+        "chooseDifferentFile": "Choose Different File",
+        "selectFile": "Select Audio File",
+        "validating": "Validating...",
+        "advancedOptions": "Advanced Options",
+        "language": "Language",
+        "selectLanguage": "Select language",
+        "parakeetLanguageNote": "Language selection isn't supported for Parakeet. It always uses automatic detection.",
+        "model": "Model",
+        "loadingModels": "Loading models...",
+        "selectModel": "Select model",
+        "import": "Import",
+        "toasts": {
+          "complete": "Import complete! {{segments}} segments created.",
+          "failedTitle": "Import failed",
+          "cancelled": "Import cancelled",
+          "summaryLanguageTitle": "Could not apply default summary language",
+          "summaryLanguageDescription": "The imported meeting was saved, but the default summary language was not applied."
+        },
+        "errors": {
+          "validateFailed": "Failed to validate file",
+          "startFailed": "Failed to start import"
+        }
+      },
+      "dropOverlay": {
+        "title": "Drop audio file to import",
+        "invalidTitle": "Please drop an audio file",
+        "invalidDescription": "Supported formats: {{formats}}"
+      },
+      "recovery": {
+        "title": "Recover Interrupted Meetings",
+        "description_one": "We found {{count}} meeting that was interrupted. Select a meeting to preview and recover it.",
+        "description_other": "We found {{count}} meetings that were interrupted. Select a meeting to preview and recover it.",
+        "listTitle": "Interrupted Meetings",
+        "previewTitle": "Preview",
+        "transcriptCount_one": "{{count}} transcript",
+        "transcriptCount_other": "{{count}} transcripts",
+        "audioAvailable": "Audio available",
+        "noAudio": "No audio",
+        "started": "Started {{date}}",
+        "transcriptsTotal": "{{total}} transcripts",
+        "loadingPreview": "Loading preview...",
+        "previewNotice": "Showing first {{shown}} transcript segments (of {{total}} total)",
+        "moreTranscripts_one": "... and {{count}} more transcript",
+        "moreTranscripts_other": "... and {{count}} more transcripts",
+        "noTranscripts": "No transcripts to preview",
+        "selectMeeting": "Select a meeting to preview",
+        "delete": "Delete",
+        "deleting": "Deleting...",
+        "recover": "Recover",
+        "recovering": "Recovering...",
+        "confirmDelete": "Are you sure you want to delete this meeting? This cannot be undone.",
+        "recoverFailed": "Failed to recover meeting. Please try again.",
+        "deleteFailed": "Failed to delete meeting. Please try again."
+      },
+      "update": {
+        "titleAvailable": "Update Available",
+        "titleDownloading": "Downloading Update",
+        "titleError": "Update Error",
+        "descriptionAvailable": "A new version ({{version}}) is available",
+        "descriptionDownloading": "Downloading the latest version...",
+        "descriptionError": "An error occurred while updating",
+        "currentVersion": "Current Version:",
+        "newVersion": "New Version:",
+        "releaseDate": "Release Date:",
+        "percentComplete": "{{percent}}% complete",
+        "restartNotice": "The app will restart automatically after installation",
+        "later": "Later",
+        "downloadAndInstall": "Download & Install",
+        "notification": {
+          "title": "Update Available",
+          "description": "Version {{version}} is now available",
+          "viewDetails": "View Details"
+        },
+        "errors": {
+          "noLongerAvailable": "Update no longer available",
+          "prepareFailed": "Failed to prepare update: {{error}}",
+          "notAvailable": "Update not available",
+          "getFailed": "Failed to get update: {{error}}",
+          "installFailed": "Failed to download or install update",
+          "unknown": "Unknown error"
+        },
+        "toasts": {
+          "installed": "Update installed successfully. The app will restart...",
+          "failed": "Update failed: {{error}}"
+        }
+      },
+      "database": {
+        "title": "Welcome to Meetily!",
+        "description": "Do you have data from a previous Meetily installation?",
+        "browsePrompt": "Select your previous Meetily folder, backend directory, or database file:",
+        "browse": "Browse for Database",
+        "selecting": "Selecting...",
+        "detecting": "Detecting database...",
+        "found": "Database found!",
+        "notFound": "No database found at selected location. Please select the Meetily folder, backend folder, or the database file directly.",
+        "importing": "Importing...",
+        "success": "Success!",
+        "importDatabase": "Import Database",
+        "or": "or",
+        "startFresh": "Start Fresh (No Import)",
+        "toasts": {
+          "imported": "Database imported successfully! Reloading...",
+          "importFailed": "Import failed: {{error}}",
+          "initialized": "Database initialized successfully! Starting app...",
+          "initFailed": "Initialization failed: {{error}}"
+        },
+        "homebrew": {
+          "title": "Previous Meetily Installation Detected!",
+          "description": "We found an existing database from your previous Meetily installation (Python backend version).",
+          "size": "Size: {{size}}",
+          "question": "Would you like to import your previous meetings, transcripts, and summaries?",
+          "importing": "Importing...",
+          "confirm": "Yes, Import",
+          "decline": "No, Browse Manually"
+        }
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateCon
 import { storageService } from '@/services/storageService';
 import { transcriptService } from '@/services/transcriptService';
 import Analytics from '@/lib/analytics';
+import i18n from '@/i18n';
 import {
   applyPinnedSummaryLanguageToMeeting,
   detectAndCacheSummaryLanguage,
@@ -262,7 +263,7 @@ export function useRecordingStop(
           const meetingId = responseData.meeting_id;
           if (!meetingId) {
             console.error('No meeting_id in response:', responseData);
-            throw new Error('No meeting ID received from save operation');
+            throw new Error(i18n.t('recordingArea.toasts.noMeetingId'));
           }
 
           let shouldDetectSummaryLanguage = false;
@@ -270,8 +271,8 @@ export function useRecordingStop(
             shouldDetectSummaryLanguage = !(await applyPinnedSummaryLanguageToMeeting(meetingId));
           } catch (error) {
             console.warn('Failed to apply pinned summary language preference for new meeting:', error);
-            toast.warning('Could not apply default summary language', {
-              description: 'The meeting was saved, but the default summary language was not applied.',
+            toast.warning(i18n.t('recordingArea.toasts.summaryLanguageApplyFailed.title'), {
+              description: i18n.t('recordingArea.toasts.summaryLanguageApplyFailed.description'),
             });
           }
 
@@ -283,8 +284,8 @@ export function useRecordingStop(
               );
             } catch (error) {
               console.warn('Failed to detect summary language for new meeting:', error);
-              toast.warning('Could not detect summary language', {
-                description: 'The meeting was saved, but Auto could not detect the summary language.',
+              toast.warning(i18n.t('recordingArea.toasts.summaryLanguageDetectFailed.title'), {
+                description: i18n.t('recordingArea.toasts.summaryLanguageDetectFailed.description'),
               });
             }
           }
@@ -323,10 +324,10 @@ export function useRecordingStop(
           setStatus(RecordingStatus.COMPLETED);
 
           // Show success toast with navigation option
-          toast.success('Recording saved successfully!', {
-            description: `${freshTranscripts.length} transcript segments saved.`,
+          toast.success(i18n.t('recordingArea.toasts.saveSuccess.title'), {
+            description: i18n.t('recordingArea.toasts.saveSuccess.description', { segments: freshTranscripts.length }),
             action: {
-              label: 'View Meeting',
+              label: i18n.t('recordingArea.common.viewMeeting'),
               onClick: () => {
                 router.push(`/meeting-details?id=${meetingId}`);
                 Analytics.trackButtonClick('view_meeting_from_toast', 'recording_complete');
@@ -398,8 +399,8 @@ export function useRecordingStop(
         } catch (saveError) {
           console.error('Failed to save meeting to database:', saveError);
           setStatus(RecordingStatus.ERROR, saveError instanceof Error ? saveError.message : 'Unknown error');
-          toast.error('Failed to save meeting', {
-            description: saveError instanceof Error ? saveError.message : 'Unknown error'
+          toast.error(i18n.t('recordingArea.toasts.saveError'), {
+            description: saveError instanceof Error ? saveError.message : i18n.t('recordingArea.common.unknownError')
           });
           throw saveError;
         }

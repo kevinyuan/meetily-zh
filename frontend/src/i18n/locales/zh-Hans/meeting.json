@@ -1,0 +1,235 @@
+{
+  "meetingArea": {
+    "page": {
+      "noMeetingSelected": "未选择会议",
+      "goBack": "返回"
+    },
+    "modelSettings": {
+      "saveSuccess": "模型设置已保存",
+      "saveError": "保存模型设置失败"
+    },
+    "summary": {
+      "generatingSpinner": "正在生成 AI 摘要…",
+      "saveFailedAlert": "保存更改失败，请重试。",
+      "newSection": "新建章节",
+      "status": {
+        "processing": "正在处理转录内容…",
+        "summarizing": "正在生成摘要…",
+        "regenerating": "正在重新生成摘要…",
+        "completed": "摘要已完成",
+        "error": "生成摘要时出错"
+      },
+      "response": {
+        "title": "会议摘要",
+        "keyPoints": "要点",
+        "actionItems": "行动项",
+        "decisions": "决议",
+        "mainTopics": "主要议题",
+        "fullSummary": "完整摘要"
+      },
+      "error": {
+        "title": "生成摘要出错",
+        "hint": "请检查模型配置和 API 密钥，或稍后重试。"
+      },
+      "loading": {
+        "processingTitle": "正在处理转录",
+        "summarizingTitle": "正在生成摘要",
+        "processingDescription": "正在分析你的转录内容…",
+        "summarizingDescription": "正在为你的会议生成详细摘要…"
+      },
+      "empty": {
+        "title": "暂无摘要内容。",
+        "hint": "试试重新生成摘要。"
+      },
+      "language": {
+        "auto": "自动",
+        "buttonTitle": "摘要语言：{{language}}",
+        "buttonTitleLocal": "摘要语言：{{language}}（已保存在本设备）",
+        "ariaLabel": "设置摘要语言",
+        "autoSubtitleLocal": "对于没有文件夹的会议，保存在本设备上",
+        "autoSubtitleDefault": "使用转录中占主导的语言",
+        "loadFailedTitle": "无法读取已保存的摘要语言",
+        "loadFailedDescription": "在能读取会议元数据前将使用“自动”。",
+        "loadFailedGenerationDescription": "本次生成将使用“自动”。",
+        "bilingualTitle": "检测到双语转录",
+        "bilingualDescription": "如果“自动”选错了语言，请手动指定摘要语言。",
+        "savedLocallyTitle": "摘要语言已保存在本设备",
+        "savedLocallyDescription": "该会议没有录音文件夹，因此该偏好无法写入会议元数据。",
+        "saveFailed": "保存摘要语言失败"
+      }
+    },
+    "generator": {
+      "stop": "停止",
+      "stopTitle": "停止生成摘要",
+      "processing": "处理中…",
+      "generate": "生成摘要",
+      "regenerate": "重新生成摘要",
+      "generateTitle": "生成 AI 摘要",
+      "regenerateTitle": "重新生成 AI 摘要",
+      "loadingConfigTitle": "正在加载模型配置…",
+      "checkingModelsTitle": "正在检查模型…",
+      "settingsTitle": "摘要设置",
+      "aiModel": "AI 模型",
+      "modelSettingsDialogTitle": "模型设置",
+      "template": "模板",
+      "templateTitle": "选择摘要模板"
+    },
+    "models": {
+      "loadingConfig": "正在加载模型配置，请稍候…",
+      "noBuiltInSelectedTitle": "未选择内置 AI 模型",
+      "noBuiltInSelectedDescription": "请在设置中选择一个模型",
+      "notFoundTitle": "未找到模型",
+      "notFoundDescription": "无法获取模型信息：{{model}}",
+      "downloadingTitle": "模型正在下载",
+      "downloadingDescription": "{{model}} 正在下载（{{progress}}%），请等待下载完成。",
+      "notDownloadedTitle": "模型尚未下载",
+      "notDownloadedDescription": "{{model}} 需要先下载才能使用，正在打开模型设置…",
+      "corruptedTitle": "模型文件已损坏",
+      "corruptedDescription": "{{model}} 文件已损坏，请删除后重新下载。",
+      "errorTitle": "模型错误",
+      "errorDescription": "模型发生错误",
+      "notAvailableTitle": "模型不可用",
+      "notAvailableDescription": "所选模型尚未就绪",
+      "checkFailedTitle": "检查模型状态失败",
+      "builtInNotDownloadedTitle": "内置 AI 模型尚未下载",
+      "builtInNotDownloadedDescription": "{{model}} 需要下载，请在模型设置中下载。",
+      "builtInNotAvailableTitle": "内置 AI 模型不可用",
+      "builtInNotAvailableDescription": "{{error}}。请检查模型设置。",
+      "builtInFileError": "模型文件存在错误",
+      "builtInFileCorrupted": "模型文件已损坏",
+      "builtInNotReadyTitle": "内置 AI 模型尚未就绪",
+      "builtInNotReadyDescription": "请确认已在设置中下载该模型",
+      "builtInValidateFailed": "校验内置 AI 模型失败",
+      "ollamaNoModels": "未找到 Ollama 模型，请在模型设置中下载 gemma2:2b。",
+      "ollamaNoModelsSettings": "未找到 Ollama 模型，请在模型设置中下载 gemma3:1b。",
+      "ollamaNotInstalledTitle": "未安装 Ollama",
+      "ollamaNotInstalledDescription": "请下载并安装 Ollama 以使用本地模型。",
+      "ollamaDownloadAction": "下载",
+      "ollamaCheckFailed": "检查 Ollama 模型失败。请确认 Ollama 正在运行，并下载一个模型。",
+      "ollamaCheckFailedSettings": "检查 Ollama 模型失败。请确认 Ollama 正在运行，并在设置中下载一个模型。"
+    },
+    "updater": {
+      "saving": "保存中…",
+      "savingTitle": "保存中",
+      "save": "保存",
+      "saveTitle": "保存更改",
+      "copy": "复制",
+      "copySummaryTitle": "复制摘要"
+    },
+    "transcript": {
+      "promptPlaceholder": "为 AI 摘要补充背景信息，例如参会人员、会议概况、会议目标等…",
+      "copy": "复制",
+      "copyTitle": "复制转录",
+      "noTranscriptTitle": "暂无转录内容",
+      "recording": "录音",
+      "openFolderTitle": "打开录音文件夹",
+      "enhance": "增强",
+      "enhanceTitle": "重新转录以提升录音的转录质量",
+      "silence": "[静音]",
+      "listening": "正在聆听…",
+      "paused": "录音已暂停",
+      "listeningForSpeech": "正在聆听语音…",
+      "resumeHint": "点击“继续”以恢复录音",
+      "speakHint": "开始说话即可看到实时转录",
+      "welcome": "欢迎使用 meetily！",
+      "startHint": "开始录音即可看到实时转录",
+      "loadingMore": "正在加载更多…",
+      "showingSegments": "已显示 {{total}} 条中的 {{loaded}} 条"
+    },
+    "retranscribe": {
+      "titleProcessing": "正在重新转录…",
+      "titleFailed": "重新转录失败",
+      "title": "重新转录会议",
+      "descriptionProcessing": "正在处理音频…",
+      "descriptionFailed": "重新转录过程中发生错误",
+      "description": "使用不同的语言设置重新处理音频",
+      "language": "语言",
+      "selectLanguage": "选择语言",
+      "languageHint": "指定具体语言可提升准确率，也可以使用自动检测",
+      "parakeetHint": "Parakeet 不支持手动选择语言，它始终使用自动检测。",
+      "model": "模型",
+      "loadingModels": "正在加载模型…",
+      "selectModel": "选择模型",
+      "modelHint": "选择一个转录模型",
+      "folderMissing": "无法获取会议文件夹路径",
+      "cancel": "取消",
+      "start": "开始重新转录",
+      "close": "关闭",
+      "tryAgain": "重试",
+      "complete": "重新转录完成！已生成 {{segments}} 个片段。",
+      "cancelled": "已取消重新转录"
+    },
+    "blocks": {
+      "placeholder": "输入“/”打开命令…",
+      "copyBlock": "复制内容块",
+      "copyBlocks": "复制 {{num}} 个内容块",
+      "deleteBlock": "删除内容块",
+      "deleteBlocks": "删除 {{num}} 个内容块",
+      "commands": {
+        "textLabel": "文本",
+        "textDescription": "直接开始输入纯文本",
+        "bulletLabel": "项目符号列表",
+        "bulletDescription": "创建一个项目符号列表",
+        "heading1Label": "标题 1",
+        "heading1Description": "大号章节标题",
+        "heading2Label": "标题 2",
+        "heading2Description": "中号章节标题"
+      }
+    },
+    "section": {
+      "editTitle": "编辑章节标题",
+      "deleteSectionTitle": "删除章节",
+      "delete": "删除"
+    },
+    "toasts": {
+      "generatingSummary": "正在生成摘要…",
+      "regeneratingSummary": "正在重新生成摘要…",
+      "usingModel": "使用 {{provider}}/{{model}}",
+      "generateFailed": "生成摘要失败",
+      "regenerateFailed": "重新生成摘要失败",
+      "regenerateFailedRestored": "{{error}}。已恢复你之前的摘要。",
+      "connectionRefused": "无法连接到 LLM 服务。请确认 Ollama 或你配置的 LLM 服务商正在运行。",
+      "summarySuccess": "摘要生成成功！",
+      "summarySuccessDescription": "你的会议摘要已就绪",
+      "generationFailedFallback": "摘要生成失败",
+      "regenerationFailedFallback": "摘要重新生成失败",
+      "emptySummary": "摘要生成已完成，但返回的内容为空。",
+      "noTranscriptText": "没有可用的转录文本，请先添加内容。",
+      "fetchTranscriptsFailed": "获取用于生成摘要的转录内容失败",
+      "noTranscripts": "没有可用于生成摘要的转录内容",
+      "noTranscriptsRegenerate": "没有可用于重新生成摘要的转录内容",
+      "generationStopped": "已停止生成摘要",
+      "generationStoppedDescription": "你随时可以重新生成摘要",
+      "changesSaved": "更改已保存",
+      "changesSaveFailed": "保存更改失败",
+      "copyTranscriptsFetchFailed": "获取待复制的转录内容失败",
+      "noTranscriptsToCopy": "没有可复制的转录内容",
+      "transcriptCopied": "转录内容已复制到剪贴板",
+      "summaryCopied": "摘要已复制到剪贴板",
+      "noSummaryToCopy": "没有可复制的摘要内容",
+      "copySummaryFailed": "复制摘要失败",
+      "templateSelected": "已选择模板",
+      "templateSelectedDescription": "将使用“{{name}}”模板生成摘要",
+      "openFolderFailed": "打开录音文件夹失败",
+      "unknownError": "未知错误"
+    },
+    "clipboard": {
+      "transcriptHeader": "会议转录：{{id}} - {{title}}",
+      "transcriptDate": "日期：{{date}}",
+      "summaryHeader": "会议摘要：{{title}}",
+      "meetingIdLabel": "会议 ID：",
+      "dateLabel": "日期：",
+      "copiedOnLabel": "复制时间："
+    },
+    "meetingData": {
+      "newCall": "+ 新建会议",
+      "saveTitleFailed": "保存会议标题失败：未知错误",
+      "saveSummaryFailed": "保存会议摘要失败：未知错误"
+    },
+    "modelConfig": {
+      "saveSuccess": "摘要设置已保存",
+      "saveFailed": "保存摘要设置失败",
+      "saveFailedUnknown": "保存模型配置失败：未知错误"
+    }
+  }
+}
