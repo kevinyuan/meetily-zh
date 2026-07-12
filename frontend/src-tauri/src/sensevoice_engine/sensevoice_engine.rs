@@ -268,13 +268,18 @@ impl SenseVoiceEngine {
 
     /// Transcribe 16 kHz mono f32 samples in [-1, 1].
     ///
-    /// `language` is an ISO-639-1 hint; `None` (or an unsupported code) lets
-    /// SenseVoice run its own language identification, which is reliable.
+    /// Returns the text plus the language SenseVoice *detected* for this utterance.
+    ///
+    /// `language` is a hint; `None` (or an unsupported code) lets SenseVoice run its
+    /// own language identification. Because the pipeline hands us one VAD-segmented
+    /// chunk at a time, leaving the hint as `None` gives per-sentence detection —
+    /// which is what makes a meeting that switches between Chinese and English
+    /// transcribe correctly instead of forcing every sentence through one language.
     pub async fn transcribe_audio(
         &self,
         audio_data: Vec<f32>,
         language: Option<String>,
-    ) -> Result<String> {
+    ) -> Result<(String, Option<String>)> {
         let mut guard = self.current_model.write().await;
         let model = guard
             .as_mut()
@@ -300,7 +305,11 @@ impl SenseVoiceEngine {
             .transcribe_with(&audio_data, &params)
             .map_err(|e| anyhow!("SenseVoice transcription failed: {}", e))?;
 
-        Ok(result.text)
+        if let Some(detected) = &result.language {
+            log::debug!("SenseVoice detected language for this utterance: {}", detected);
+        }
+
+        Ok((result.text, result.language))
     }
 
     pub async fn get_models_directory(&self) -> PathBuf {

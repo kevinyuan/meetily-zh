@@ -237,6 +237,7 @@ impl SenseVoiceModel {
             return Ok(TranscriptionResult {
                 text: String::new(),
                 segments: None,
+                language: None,
             });
         }
 
@@ -358,7 +359,7 @@ impl SenseVoiceModel {
         let tokens = &decoder_result.tokens;
         let timestamps = &decoder_result.timestamps;
 
-        let (start, _language, _emotion, _event) = if meta.is_funasr_nano {
+        let (start, language, _emotion, _event) = if meta.is_funasr_nano {
             (0, None, None, None)
         } else {
             let lang = tokens
@@ -414,7 +415,17 @@ impl SenseVoiceModel {
             None
         };
 
-        TranscriptionResult { text, segments }
+        // The raw token is of the form "<|zh|>"; expose the bare code.
+        let language = language.and_then(|raw| {
+            let code = raw.trim_start_matches("<|").trim_end_matches("|>");
+            (!code.is_empty() && code != raw).then(|| code.to_string())
+        });
+
+        TranscriptionResult {
+            text,
+            segments,
+            language,
+        }
     }
 }
 

@@ -1,12 +1,13 @@
 'use client';
 
 import { Transcript } from '@/types';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
+import { useTranslation } from 'react-i18next';
+import { LANGUAGE_BADGES } from '@/lib/model-languages';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { RecordingStatusBar } from './RecordingStatusBar';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 
 interface TranscriptViewProps {
   transcripts: Transcript[];
@@ -107,6 +108,19 @@ function cleanStopWords(text: string): string {
 
 export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isRecording = false, isPaused = false, isProcessing = false, isStopping = false, enableStreaming = false }) => {
   const { t } = useTranslation();
+
+  // Only tag lines when the meeting actually mixes languages. Badging every line of a
+  // single-language meeting is noise; the point of per-sentence detection is to make
+  // code-switching legible.
+  const showLanguageTags = useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of transcripts) {
+      if (item.language) seen.add(item.language);
+      if (seen.size > 1) return true;
+    }
+    return false;
+  }, [transcripts]);
+
   const [speechDetected, setSpeechDetected] = useState(false);
 
   // Debug: Log the props to understand what's happening
@@ -284,6 +298,17 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
             className="mb-3"
           >
             <div className="flex items-start gap-2">
+              {/* Per-sentence language, from SenseVoice's own detection. Only shown in
+                  mixed-language meetings — a badge on every line when everything is in
+                  one language is noise, not information. */}
+              {transcript.language && showLanguageTags && (
+                <span
+                  className="mt-1 flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500"
+                  title={t('recordingArea.transcript.detectedLanguage')}
+                >
+                  {LANGUAGE_BADGES[transcript.language] ?? transcript.language.toUpperCase()}
+                </span>
+              )}
               <Tooltip>
                 <TooltipTrigger>
                   <span className="text-xs text-gray-400 mt-1 flex-shrink-0 min-w-[50px]">

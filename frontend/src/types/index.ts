@@ -16,6 +16,14 @@ export interface Transcript {
   audio_start_time?: number; // Seconds from recording start (e.g., 125.3)
   audio_end_time?: number;   // Seconds from recording start (e.g., 128.6)
   duration?: number;          // Segment duration in seconds (e.g., 3.3)
+  /**
+   * Language detected for THIS line ("zh", "en", "ja", "ko", "yue").
+   *
+   * Per-sentence: SenseVoice identifies each utterance independently, so a meeting
+   * that switches between Chinese and English is labelled line by line. Absent for
+   * engines that don't report it (Whisper, Parakeet).
+   */
+  language?: string;
 }
 
 export interface TranscriptUpdate {

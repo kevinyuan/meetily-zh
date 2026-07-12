@@ -36,6 +36,14 @@ pub struct TranscriptUpdate {
     pub audio_start_time: f64, // Seconds from recording start (e.g., 125.3)
     pub audio_end_time: f64,   // Seconds from recording start (e.g., 128.6)
     pub duration: f64,          // Segment duration in seconds (e.g., 3.3)
+
+    /// Language detected for *this* utterance ("zh", "en", "ja", "ko", "yue").
+    ///
+    /// Per-sentence, not per-meeting: each VAD chunk is identified independently, so a
+    /// meeting that switches between Chinese and English is labelled sentence by
+    /// sentence. Only SenseVoice reports this; the other engines send `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
 }
 
 // NOTE: get_transcript_history and get_recording_meeting_name functions
@@ -152,7 +160,7 @@ pub fn start_transcription_task<R: Runtime>(
                             )
                             .await
                             {
-                                Ok((transcript, confidence_opt, is_partial)) => {
+                                Ok((transcript, confidence_opt, is_partial, detected_language)) => {
                                     // Provider-aware confidence threshold
                                     let confidence_threshold = match &engine_clone {
                                         TranscriptionEngine::Whisper(_) | TranscriptionEngine::Provider(_) => 0.3,
@@ -213,6 +221,7 @@ pub fn start_transcription_task<R: Runtime>(
                                             text: transcript,
                                             timestamp: format_current_timestamp(), // Wall-clock for reference
                                             source: "Audio".to_string(),
+                                            language: detected_language.clone(),
                                             sequence_id,
                                             chunk_start_time: chunk_timestamp, // Legacy compatibility
                                             is_partial,
@@ -413,7 +422,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
     engine: &TranscriptionEngine,
     chunk: AudioChunk,
     app: &AppHandle<R>,
-) -> std::result::Result<(String, Option<f32>, bool), TranscriptionError> {
+) -> std::result::Result<(String, Option<f32>, bool, Option<String>), TranscriptionError> {
     // Convert to 16kHz mono for transcription
     let transcription_data = if chunk.sample_rate != 16000 {
         crate::audio::audio_processing::resample_audio(&chunk.data, chunk.sample_rate, 16000)
@@ -459,7 +468,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Ok((text, confidence, is_partial)) => {
                     let cleaned_text = text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), Some(confidence), is_partial));
+                        return Ok((String::new(), Some(confidence), is_partial, None));
                     }
 
                     info!(
@@ -467,7 +476,8 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                         chunk.chunk_id, cleaned_text, confidence, is_partial
                     );
 
-                    Ok((cleaned_text, Some(confidence), is_partial))
+                    // Whisper reports no per-utterance language back to us.
+                    Ok((cleaned_text, Some(confidence), is_partial, None))
                 }
                 Err(e) => {
                     error!(
@@ -498,19 +508,21 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 .transcribe_audio(speech_samples, language)
                 .await
             {
-                Ok(text) => {
+                Ok((text, detected_language)) => {
                     let cleaned_text = text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), None, false));
+                        return Ok((String::new(), None, false, None));
                     }
 
                     info!(
-                        "SenseVoice transcription complete for chunk {}: '{}'",
-                        chunk.chunk_id, cleaned_text
+                        "SenseVoice transcription complete for chunk {}: '{}' (detected: {:?})",
+                        chunk.chunk_id, cleaned_text, detected_language
                     );
 
                     // CTC decoding gives no confidence score and no partial results.
-                    Ok((cleaned_text, None, false))
+                    // The detected language IS per-sentence: each VAD chunk is a
+                    // separate utterance with its own language ID.
+                    Ok((cleaned_text, None, false, detected_language))
                 }
                 Err(e) => {
                     error!(
@@ -537,7 +549,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Ok(text) => {
                     let cleaned_text = text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), None, false));
+                        return Ok((String::new(), None, false, None));
                     }
 
                     info!(
@@ -546,7 +558,8 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                     );
 
                     // Parakeet doesn't provide confidence or partial results
-                    Ok((cleaned_text, None, false))
+                    // Parakeet does not report a language.
+                    Ok((cleaned_text, None, false, None))
                 }
                 Err(e) => {
                     error!(
@@ -576,7 +589,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Ok(result) => {
                     let cleaned_text = result.text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), result.confidence, result.is_partial));
+                        return Ok((String::new(), result.confidence, result.is_partial, None));
                     }
 
                     let confidence_str = match result.confidence {
@@ -593,7 +606,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                         result.is_partial
                     );
 
-                    Ok((cleaned_text, result.confidence, result.is_partial))
+                    Ok((cleaned_text, result.confidence, result.is_partial, None))
                 }
                 Err(e) => {
                     error!(

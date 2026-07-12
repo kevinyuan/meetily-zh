@@ -53,7 +53,8 @@
       "copy": "Copy",
       "copyTooltip": "Copy Transcript",
       "language": "Language",
-      "languageTooltip": "Language"
+      "languageTooltip": "Language",
+      "detectedLanguage": "Detected language for this line"
     },
     "permissions": {
       "titleBoth": "Permissions Required",

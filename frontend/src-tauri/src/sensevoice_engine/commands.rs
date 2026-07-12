@@ -196,6 +196,7 @@ pub async fn sensevoice_transcribe_audio(
     require_engine()?
         .transcribe_audio(audio_data, language)
         .await
+        .map(|(text, _detected_language)| text)
         .map_err(|e| format!("SenseVoice transcription failed: {}", e))
 }
 

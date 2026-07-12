@@ -122,6 +122,16 @@ pub struct TranscriptionResult {
     pub text: String,
     /// Individual segments with timing information
     pub segments: Option<Vec<TranscriptionSegment>>,
+    /// The language the model *detected* for this utterance, as an ISO code
+    /// ("zh", "en", "ja", "ko", "yue").
+    ///
+    /// SenseVoice performs language identification per utterance and emits it as the
+    /// first decoded token. Upstream discards it; we keep it, because each VAD chunk
+    /// is transcribed independently and so this is effectively a per-sentence
+    /// language label — which is what makes mixed-language meetings legible.
+    ///
+    /// `None` for engines/models that do not report one.
+    pub language: Option<String>,
 }
 
 impl TranscriptionResult {

@@ -53,7 +53,8 @@
       "copy": "复制",
       "copyTooltip": "复制转录内容",
       "language": "语言",
-      "languageTooltip": "语言"
+      "languageTooltip": "语言",
+      "detectedLanguage": "该句检测到的语言"
     },
     "permissions": {
       "titleBoth": "需要权限",

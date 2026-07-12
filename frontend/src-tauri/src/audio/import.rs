@@ -598,7 +598,7 @@ async fn run_import<R: Runtime>(
             }
             Engine::SenseVoice => {
                 let engine = sensevoice_engine.as_ref().unwrap();
-                let text = engine
+                let (text, _detected_language) = engine
                     .transcribe_audio(segment.samples.clone(), language.clone())
                     .await
                     .map_err(|e| {
