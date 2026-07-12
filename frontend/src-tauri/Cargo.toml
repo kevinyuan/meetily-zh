@@ -102,9 +102,15 @@ nnnoiseless = "0.5"
 futures-util = "0.3"
 silero_rs = { git = "https://github.com/emotechlab/silero-rs", rev = "26a6460", package = "silero" }
 
-# Parakeet (ONNX-based fast transcription) dependencies
-ort = { version = "2.0.0-rc.10" }  # ONNX Runtime for Parakeet models
+# Parakeet + SenseVoice (ONNX-based fast transcription) dependencies
+# ort MUST stay at rc.10: silero_rs pins `ort = "=2.0.0-rc.10"` exactly, and
+# rc.12 makes ort::Error !Send + !Sync, which breaks both silero's and our own
+# `#[from] ort::Error` enums. SenseVoice is therefore vendored (see sensevoice_engine)
+# rather than pulled from transcribe-rs, which pins `=2.0.0-rc.12`.
+ort = { version = "2.0.0-rc.10" }  # ONNX Runtime for Parakeet + SenseVoice models
 thiserror = "2.0.16"                # Error handling for Parakeet
+
+bzip2 = "0.4"                       # sherpa-onnx ships SenseVoice as .tar.bz2
 
 # Async
 tokio = { version = "1.32.0", features = ["full", "tracing"] }
@@ -130,7 +136,7 @@ sysinfo = "0.32"
 lazy_static = { version = "1.4.0" }
 realfft = "3.4.0"
 regex = "1.11.0"
-ndarray = "0.16"
+ndarray = "0.16"  # must match ort's ndarray (rc.10 -> 0.16) for TensorRef::from_array_view
 bytes = { version = "1.9.0", features = ["serde"] }
 
 esaxx-rs = "0.1.10"

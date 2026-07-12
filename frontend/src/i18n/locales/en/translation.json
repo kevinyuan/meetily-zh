@@ -1,0 +1,47 @@
+{
+  "appLanguage": {
+    "title": "Display Language",
+    "description": "Language used across the Meetily interface.",
+    "systemDefault": "System default ({{language}})"
+  },
+  "languagePreference": {
+    "followUi": "Same as display language ({{language}})",
+    "followUiShort": "Same as display language",
+    "auto": "Auto-detect",
+    "autoTranslate": "Auto-detect and translate to English"
+  },
+  "modelFilter": {
+    "label": "Language",
+    "all": "All languages",
+    "description": "Only show models that support this language."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "download": "Download",
+    "retry": "Retry",
+    "close": "Close"
+  },
+  "settings": {
+    "tabs": {
+      "general": "General",
+      "recording": "Recording",
+      "transcription": "Transcription Models",
+      "summary": "Summary Models",
+      "beta": "Beta"
+    },
+    "general": {
+      "notifications": {
+        "title": "Notifications",
+        "description": "Enable or disable notifications of start and end of meeting"
+      },
+      "storage": {
+        "title": "Data Storage Locations",
+        "description": "View and access where Meetily stores your data",
+        "recordings": "Meeting Recordings",
+        "openFolder": "Open Folder"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "appLanguage": {
+    "title": "显示语言",
+    "description": "Meetily 界面所使用的语言。",
+    "systemDefault": "跟随系统（{{language}}）"
+  },
+  "languagePreference": {
+    "followUi": "与显示语言相同（{{language}}）",
+    "followUiShort": "与显示语言相同",
+    "auto": "自动检测",
+    "autoTranslate": "自动检测并翻译为英文"
+  },
+  "modelFilter": {
+    "label": "语言",
+    "all": "全部语言",
+    "description": "仅显示支持该语言的模型。"
+  },
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "download": "下载",
+    "retry": "重试",
+    "close": "关闭"
+  },
+  "settings": {
+    "tabs": {
+      "general": "通用",
+      "recording": "录音",
+      "transcription": "转录模型",
+      "summary": "摘要模型",
+      "beta": "测试功能"
+    },
+    "general": {
+      "notifications": {
+        "title": "通知",
+        "description": "开启或关闭会议开始与结束的通知"
+      },
+      "storage": {
+        "title": "数据存储位置",
+        "description": "查看 Meetily 存储数据的位置",
+        "recordings": "会议录音",
+        "openFolder": "打开文件夹"
+      }
+    }
+  }
+}

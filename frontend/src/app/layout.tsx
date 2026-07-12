@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar'
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider'
 import MainContent from '@/components/MainContent'
 import AnalyticsProvider from '@/components/AnalyticsProvider'
+import { I18nProvider } from '@/i18n/I18nProvider'
 import { Toaster, toast } from 'sonner'
 import "sonner/dist/styles.css"
 import { useState, useEffect, useCallback } from 'react'
@@ -231,8 +232,11 @@ export default function RootLayout({
   }
 
   return (
+    // `lang` is corrected client-side by the i18n `languageChanged` listener; this is
+    // only the pre-hydration default.
     <html lang="en">
       <body className={`${sourceSans3.variable} font-sans antialiased`}>
+        <I18nProvider>
         <AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
@@ -275,6 +279,7 @@ export default function RootLayout({
             </TranscriptProvider>
           </RecordingStateProvider>
         </AnalyticsProvider>
+        </I18nProvider>
 
         <Toaster position="bottom-center" richColors closeButton />
       </body>
