@@ -437,17 +437,18 @@ pub async fn get_audio_backend_info() -> Result<Vec<BackendInfo>, String> {
 
 /// Push the segmentation settings into the live engine state.
 ///
-/// In punctuation mode the pause length no longer decides where lines break, so the
-/// VAD is given the widest window instead: a longer segment gives the model more
-/// context, which is what its punctuation prediction depends on.
+/// The pause length applies in BOTH modes, because it does not only decide where lines
+/// break — it decides *when the audio is transcribed at all*. Nothing reaches the model
+/// until the VAD sees a silence this long, so a longer pause means a longer wait before
+/// anything appears on screen.
+///
+/// An earlier version forced the maximum (400ms) in punctuation mode, reasoning that a
+/// longer segment gives the model more context for predicting punctuation. That was a
+/// bad trade: speaking several sentences with pauses shorter than 400ms produced no
+/// output at all until the speaker finally stopped — and then several lines at once.
+/// Latency matters more than a marginally better comma.
 pub fn apply_segmentation_settings(prefs: &RecordingPreferences) {
     let split_on_punctuation = prefs.segmentation_mode == SEGMENTATION_PUNCTUATION;
     crate::audio::transcription::worker::set_split_on_punctuation(split_on_punctuation);
-
-    let redemption = if split_on_punctuation {
-        crate::audio::vad::VAD_REDEMPTION_MAX_MS
-    } else {
-        prefs.vad_redemption_ms
-    };
-    crate::audio::vad::set_vad_redemption_ms(redemption);
+    crate::audio::vad::set_vad_redemption_ms(prefs.vad_redemption_ms);
 }

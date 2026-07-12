@@ -95,8 +95,11 @@
           "label": "By pause length",
           "help": "A line is a stretch of speech between two silences. Works with every engine, but in fluent speech the pause between sentences is often shorter than the threshold, so several sentences land on one line."
         },
-        "shorter": "100 ms — splits more often",
-        "longer": "400 ms — merges more"
+        "shorter": "100 ms — faster, more splits",
+        "longer": "400 ms — slower, fewer splits",
+        "pauseLength": "Pause before transcribing",
+        "pauseLengthHelpPunctuation": "How long a silence must last before the audio is sent to the model. This sets how quickly text appears: nothing is transcribed until the speaker pauses this long. Lines are still split on punctuation.",
+        "pauseLengthHelpPause": "How long a silence must last before the line ends and the audio is transcribed. It sets both where lines break and how quickly text appears."
       }
     },
     "summary": {

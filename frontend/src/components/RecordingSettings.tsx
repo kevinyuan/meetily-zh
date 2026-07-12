@@ -364,34 +364,43 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
                 {t('settingsArea.recording.segmentation.pause.help')}
               </div>
 
-              {/* The pause length only means anything in this mode. */}
-              {preferences.segmentation_mode === 'pause' && (
-                <div className="mt-3">
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="range"
-                      min={VAD_REDEMPTION_MIN_MS}
-                      max={VAD_REDEMPTION_MAX_MS}
-                      step={10}
-                      value={preferences.vad_redemption_ms}
-                      onChange={(e) => handleVadRedemptionInput(Number(e.target.value))}
-                      onPointerUp={handleVadRedemptionCommit}
-                      onKeyUp={handleVadRedemptionCommit}
-                      onClick={(e) => e.preventDefault()}
-                      className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-blue-600"
-                    />
-                    <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">
-                      {preferences.vad_redemption_ms} ms
-                    </span>
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs text-gray-400">
-                    <span>{t('settingsArea.recording.segmentation.shorter')}</span>
-                    <span>{t('settingsArea.recording.segmentation.longer')}</span>
-                  </div>
-                </div>
-              )}
             </div>
           </label>
+        </div>
+
+        {/* The pause length applies in BOTH modes: it is what decides when audio is sent
+            to the model at all, so it sets how quickly text appears — not just where a
+            line breaks. */}
+        <div className="mt-5 border-t border-gray-100 pt-4">
+          <div className="mb-1 text-sm font-medium text-gray-900">
+            {t('settingsArea.recording.segmentation.pauseLength')}
+          </div>
+          <p className="mb-3 text-xs text-gray-500">
+            {preferences.segmentation_mode === 'punctuation'
+              ? t('settingsArea.recording.segmentation.pauseLengthHelpPunctuation')
+              : t('settingsArea.recording.segmentation.pauseLengthHelpPause')}
+          </p>
+
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min={VAD_REDEMPTION_MIN_MS}
+              max={VAD_REDEMPTION_MAX_MS}
+              step={10}
+              value={preferences.vad_redemption_ms}
+              onChange={(e) => handleVadRedemptionInput(Number(e.target.value))}
+              onPointerUp={handleVadRedemptionCommit}
+              onKeyUp={handleVadRedemptionCommit}
+              className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-blue-600"
+            />
+            <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">
+              {preferences.vad_redemption_ms} ms
+            </span>
+          </div>
+          <div className="mt-1 flex justify-between text-xs text-gray-400">
+            <span>{t('settingsArea.recording.segmentation.shorter')}</span>
+            <span>{t('settingsArea.recording.segmentation.longer')}</span>
+          </div>
         </div>
       </div>
     </div>
