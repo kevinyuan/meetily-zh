@@ -391,6 +391,14 @@
       "chunkDropWarning": {
         "title": "转录性能警告"
       }
+    },
+    "export": {
+      "title": "导出",
+      "description": "将会议导出为 Markdown 文件。转录和摘要存在数据库里；导出后你会得到纯文本副本，可以放进文件夹、Git 或 iCloud。",
+      "button": "导出全部会议为 Markdown",
+      "exporting": "正在导出……",
+      "done": "已导出 {{n}} 场会议",
+      "failed": "导出失败"
     }
   }
 }

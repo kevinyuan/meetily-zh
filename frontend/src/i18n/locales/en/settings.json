@@ -391,6 +391,14 @@
       "chunkDropWarning": {
         "title": "Transcription Performance Warning"
       }
+    },
+    "export": {
+      "title": "Export",
+      "description": "Write your meetings out as Markdown files. Transcripts and summaries live in a database; exporting gives you plain-text copies you can keep in a folder, in Git, or in iCloud.",
+      "button": "Export all meetings as Markdown",
+      "exporting": "Exporting...",
+      "done": "Exported {{n}} meeting(s)",
+      "failed": "Export failed"
     }
   }
 }

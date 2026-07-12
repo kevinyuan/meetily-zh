@@ -49,6 +49,7 @@ pub mod anthropic;
 pub mod groq;
 pub mod openrouter;
 pub mod parakeet_engine;
+pub mod export;
 pub mod sensevoice_engine;
 pub mod state;
 pub mod summary;
@@ -760,6 +761,7 @@ pub fn run() {
             // Database and Models path commands
             database::commands::get_database_directory,
             database::commands::open_database_folder,
+            export::export_meetings_markdown,
             whisper_engine::commands::open_models_folder,
             // Onboarding commands
             onboarding::get_onboarding_status,

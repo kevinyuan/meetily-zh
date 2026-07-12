@@ -2,16 +2,17 @@
 
 import { useEffect, useState, useRef } from "react"
 import { Switch } from "./ui/switch"
-import { FolderOpen } from "lucide-react"
+import { FolderOpen, Download } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
 import Analytics from "@/lib/analytics"
 import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch"
 import { useConfig, NotificationSettings } from "@/contexts/ConfigContext"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import AppLanguageSelector from "./AppLanguageSelector"
 
 export function PreferenceSettings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     notificationSettings,
     storageLocations,
@@ -19,6 +20,29 @@ export function PreferenceSettings() {
     loadPreferences,
     updateNotificationSettings
   } = useConfig();
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportMarkdown = async () => {
+    setExporting(true);
+    try {
+      const result = await invoke<{ folder: string; exported: number; skipped: number }>(
+        'export_meetings_markdown',
+        { meetingIds: null, language: i18n.language }
+      );
+      toast.success(t('settingsArea.export.done', { n: result.exported }), {
+        description: result.folder,
+      });
+    } catch (error) {
+      // The Rust side reports a cancelled folder picker as "cancelled"; that is a user
+      // action, not a failure, so it must not raise an error toast.
+      if (String(error) === 'cancelled') return;
+      console.error('Export failed:', error);
+      toast.error(t('settingsArea.export.failed'), { description: String(error) });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -224,6 +248,21 @@ export function PreferenceSettings() {
             <strong>{t('settingsArea.preferences.storage.noteLabel')}</strong> {t('settingsArea.preferences.storage.noteText')}
           </p>
         </div>
+      </div>
+
+      {/* Export Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('settingsArea.export.title')}</h3>
+        <p className="text-sm text-gray-600 mb-4">{t('settingsArea.export.description')}</p>
+
+        <button
+          onClick={handleExportMarkdown}
+          disabled={exporting}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Download className="w-4 h-4" />
+          {exporting ? t('settingsArea.export.exporting') : t('settingsArea.export.button')}
+        </button>
       </div>
 
       {/* Analytics Section */}
