@@ -1,34 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
 import i18n, { initUiLanguage } from './index';
 
 /**
- * Applies the persisted (or OS-autodetected) UI language before rendering children.
+ * Makes the i18n instance available to the tree and kicks off language detection.
  *
- * We hold the first paint until the language is resolved, otherwise a Chinese user
- * sees a flash of English on every launch.
+ * It deliberately renders its children immediately. An earlier version withheld them
+ * until detection finished ("otherwise a Chinese user sees a flash of English"), which
+ * blanked the ENTIRE app the moment detection failed to settle — and it could not
+ * settle, because OS-locale detection calls a Tauri plugin that is not registered on
+ * the Rust side, so its IPC promise never resolved. No UI may hang on a promise it
+ * does not control.
+ *
+ * The flash it was guarding against is handled properly instead: an explicit language
+ * choice is read synchronously from localStorage before i18n initialises, so the first
+ * paint is already in the right language. Only first-run OS autodetection can change
+ * the language after mount, and react-i18next re-renders on `languageChanged`.
  */
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
-
   useEffect(() => {
-    let cancelled = false;
-    initUiLanguage()
-      .catch(() => {
-        // Detection failing must never block the app — fall back to the default.
-      })
-      .finally(() => {
-        if (!cancelled) setReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+    initUiLanguage().catch((error) => {
+      // Detection failing must never take the app down with it.
+      console.error('[i18n] Language detection failed; keeping the current language:', error);
+    });
   }, []);
-
-  if (!ready) return null;
 
   return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
 }

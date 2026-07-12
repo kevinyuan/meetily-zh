@@ -7,6 +7,7 @@ import { SidebarProvider } from '@/components/Sidebar/SidebarProvider'
 import MainContent from '@/components/MainContent'
 import AnalyticsProvider from '@/components/AnalyticsProvider'
 import { I18nProvider } from '@/i18n/I18nProvider'
+import { AppErrorBoundary } from '@/components/AppErrorBoundary'
 import { Toaster, toast } from 'sonner'
 import "sonner/dist/styles.css"
 import { useState, useEffect, useCallback } from 'react'
@@ -239,6 +240,7 @@ export default function RootLayout({
     // only the pre-hydration default.
     <html lang="en">
       <body className={`${sourceSans3.variable} font-sans antialiased`}>
+        <AppErrorBoundary>
         <I18nProvider>
         <AnalyticsProvider>
           <RecordingStateProvider>
@@ -283,6 +285,7 @@ export default function RootLayout({
           </RecordingStateProvider>
         </AnalyticsProvider>
         </I18nProvider>
+        </AppErrorBoundary>
 
         <Toaster position="bottom-center" richColors closeButton />
       </body>

@@ -66,9 +66,27 @@ const resources = {
   },
 };
 
+/**
+ * The language to render with on the very first paint.
+ *
+ * localStorage is synchronous, so an explicit choice can be honoured immediately;
+ * only OS-locale autodetection needs to be async, and that must never block rendering
+ * (see `osLocaleWithTimeout`).
+ */
+function initialLanguage(): string {
+  if (typeof window === 'undefined') return DEFAULT_UI_LANGUAGE;
+  try {
+    const stored = window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+    if (stored && SUPPORTED_UI_LANGUAGES.includes(stored)) return stored;
+  } catch {
+    // localStorage unavailable — fall back to the default.
+  }
+  return DEFAULT_UI_LANGUAGE;
+}
+
 i18n.use(initReactI18next).init({
   resources,
-  lng: DEFAULT_UI_LANGUAGE,
+  lng: initialLanguage(),
   fallbackLng: DEFAULT_UI_LANGUAGE,
   supportedLngs: SUPPORTED_UI_LANGUAGES,
   interpolation: { escapeValue: false },
@@ -77,26 +95,54 @@ i18n.use(initReactI18next).init({
   react: { useSuspense: false },
 });
 
+/** The stored choice, read synchronously so the first paint is already correct. */
+export function storedUiLanguage(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
+    return stored && SUPPORTED_UI_LANGUAGES.includes(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ask the OS for its locale, but never wait forever.
+ *
+ * `locale()` goes through Tauri's IPC, and an IPC call whose handler is missing can
+ * hang indefinitely rather than reject — which is exactly what happened here, since
+ * `tauri-plugin-os` is not registered on the Rust side. Nothing that renders the UI
+ * may depend on a promise that can never settle.
+ */
+async function osLocaleWithTimeout(timeoutMs = 1500): Promise<string | null> {
+  const detection = (async () => {
+    try {
+      const { locale } = await import('@tauri-apps/plugin-os');
+      return await locale();
+    } catch {
+      // Not running under Tauri, or the OS plugin is unavailable.
+      return null;
+    }
+  })();
+
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
+  return Promise.race([detection, timeout]);
+}
+
 /**
  * Resolve the UI language to use on boot: an explicit user choice wins, otherwise
- * autodetect from the OS locale.
- *
- * Safe to call before the Tauri runtime exists — falls back to the browser locale,
- * which is what `next dev` in a plain browser will hit.
+ * autodetect from the OS locale, otherwise the browser locale.
  */
 async function detectInitialLanguage(): Promise<string> {
-  const stored = window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
-  if (stored && SUPPORTED_UI_LANGUAGES.includes(stored)) return stored;
+  const stored = storedUiLanguage();
+  if (stored) return stored;
 
-  try {
-    const { locale } = await import('@tauri-apps/plugin-os');
-    const osLocale = await locale();
-    if (osLocale) return resolveUiLanguage(osLocale);
-  } catch {
-    // Not running under Tauri (or the OS plugin is unavailable) — fall through.
-  }
+  const osLocale = await osLocaleWithTimeout();
+  if (osLocale) return resolveUiLanguage(osLocale);
 
-  return resolveUiLanguage(window.navigator?.language);
+  return resolveUiLanguage(
+    typeof navigator !== 'undefined' ? navigator.language : undefined,
+  );
 }
 
 /** Persist and apply a UI language chosen by the user. */
