@@ -31,6 +31,9 @@ pub struct ModelInfo {
     pub speed: String,
     pub status: ModelStatus,
     pub description: String,
+    /// Languages this model can transcribe. Drives the language filter in the UI.
+    #[serde(default)]
+    pub languages: Vec<String>,
 }
 
 pub struct WhisperEngine {
@@ -174,7 +177,15 @@ impl WhisperEngine {
         // Use centralized model catalog from config.rs
         let model_configs = WHISPER_MODEL_CATALOG;
 
-        for &(name, filename, size_mb, accuracy, speed, description) in model_configs {
+        for def in model_configs {
+            let (name, filename, size_mb, accuracy, speed, description) = (
+                def.name,
+                def.filename,
+                def.size_mb,
+                def.accuracy,
+                def.speed,
+                def.description,
+            );
             let model_path = models_dir.join(filename);
             let status = if model_path.exists() {
                 // Check if file size is reasonable (at least 1MB for a valid model)
@@ -243,6 +254,7 @@ impl WhisperEngine {
                 speed: speed.to_string(),
                 status,
                 description: description.to_string(),
+                languages: def.languages.iter().map(|s| s.to_string()).collect(),
             };
             
             models.push(model_info);
@@ -918,33 +930,15 @@ impl WhisperEngine {
             *cancel_flag = None;
         }
 
-        // Official ggerganov/whisper.cpp model URLs from Hugging Face
-        let model_url = match model_name {
-            // Standard f16 models
-            "tiny" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
-            "base" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
-            "small" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
-            "medium" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
-            "large-v3-turbo" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
-            "large-v3" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+        // URL and filename both come from the catalog in config.rs — previously this
+        // was a second hardcoded list that had to be kept in sync by hand.
+        let def = crate::config::whisper_model(model_name)
+            .ok_or_else(|| anyhow!("Unsupported model: {}", model_name))?;
+        let model_url = def.url;
 
-            // Q5_1 quantized models
-            "tiny-q5_1" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin",
-            "base-q5_1" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
-            "small-q5_1" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
-
-            // Q5_0 quantized models
-            "medium-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
-            "large-v3-turbo-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
-            "large-v3-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin",
-
-            _ => return Err(anyhow!("Unsupported model: {}", model_name))
-        };
-        
         log::info!("Model URL for {}: {}", model_name, model_url);
-        
-        // Generate correct filename - all models follow ggml-{model_name}.bin pattern
-        let filename = format!("ggml-{}.bin", model_name);
+
+        let filename = def.filename.to_string();
         let file_path = self.models_dir.join(&filename);
         
         log::info!("Downloading to file path: {}", file_path.display());

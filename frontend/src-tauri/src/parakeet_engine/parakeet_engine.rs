@@ -78,6 +78,12 @@ pub struct ModelInfo {
     pub speed: String,     // Performance description
     pub status: ModelStatus,
     pub description: String,
+    /// Languages this model can transcribe. Drives the language filter in the UI.
+    ///
+    /// English only. Parakeet v3 adds European languages but *not* Chinese, so this
+    /// must never widen to include "zh".
+    #[serde(default)]
+    pub languages: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -243,6 +249,10 @@ impl ParakeetEngine {
                 speed: speed.to_string(),
                 status,
                 description: description.to_string(),
+                languages: crate::config::PARAKEET_LANGUAGES
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
             };
 
             models.push(model_info);

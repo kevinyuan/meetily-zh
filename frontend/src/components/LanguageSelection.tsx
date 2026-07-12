@@ -15,6 +15,8 @@ const LANGUAGES: Language[] = [
   { code: 'auto-translate', name: 'Auto Detect (Translate to English)' },
   { code: 'en', name: 'English' },
   { code: 'zh', name: 'Chinese' },
+  // Cantonese: SenseVoice transcribes it natively, and Whisper accepts the code.
+  { code: 'yue', name: 'Cantonese' },
   { code: 'de', name: 'German' },
   { code: 'es', name: 'Spanish' },
   { code: 'ru', name: 'Russian' },
@@ -118,8 +120,14 @@ interface LanguageSelectionProps {
   selectedLanguage: string;
   onLanguageChange: (language: string) => void;
   disabled?: boolean;
-  provider?: 'localWhisper' | 'parakeet' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai';
+  provider?: 'localWhisper' | 'parakeet' | 'senseVoice' | 'deepgram' | 'elevenLabs' | 'groq' | 'openai';
 }
+
+/**
+ * The only languages SenseVoice can transcribe. Offering the full 99-language list
+ * for it would let the user pick something the engine silently ignores.
+ */
+const SENSEVOICE_LANGUAGE_CODES = ['auto', 'zh', 'en', 'ja', 'ko', 'yue'];
 
 export function LanguageSelection({
   selectedLanguage,
@@ -130,11 +138,20 @@ export function LanguageSelection({
   const [saving, setSaving] = useState(false);
   const { setSelectedLanguage } = useConfig();
 
-  // Parakeet only supports auto-detection (doesn't support manual language selection)
-  const isParakeet = provider === 'parakeet';
-  const availableLanguages = isParakeet
-    ? LANGUAGES.filter(lang => lang.code === 'auto' || lang.code === 'auto-translate')
-    : LANGUAGES;
+  // Each engine advertises a different language surface:
+  // - Parakeet: auto-detect only (it ignores any language hint we pass)
+  // - SenseVoice: its five languages, and no translation support
+  // - Whisper: everything
+  const availableLanguages = (() => {
+    if (provider === 'parakeet') {
+      return LANGUAGES.filter(lang => lang.code === 'auto' || lang.code === 'auto-translate');
+    }
+    if (provider === 'senseVoice') {
+      // No 'auto-translate': SenseVoice cannot translate, only transcribe.
+      return LANGUAGES.filter(lang => SENSEVOICE_LANGUAGE_CODES.includes(lang.code));
+    }
+    return LANGUAGES;
+  })();
 
   const handleLanguageChange = async (languageCode: string) => {
     setSaving(true);
@@ -198,10 +215,18 @@ export function LanguageSelection({
         </select>
 
         {/* Parakeet language limitation warning */}
-        {isParakeet && (
+        {provider === 'parakeet' && (
           <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
             <p className="font-medium">ℹ️ Parakeet Language Support</p>
             <p className="mt-1 text-xs">Parakeet currently only supports automatic language detection. Manual language selection is not available. Use Whisper if you need to specify a particular language.</p>
+          </div>
+        )}
+
+        {/* SenseVoice supports five languages and cannot translate */}
+        {provider === 'senseVoice' && (
+          <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-800">
+            <p className="font-medium">ℹ️ SenseVoice Language Support</p>
+            <p className="mt-1 text-xs">SenseVoice transcribes Chinese, English, Japanese, Korean and Cantonese. It does not translate — use Whisper if you need translation to English.</p>
           </div>
         )}
 
