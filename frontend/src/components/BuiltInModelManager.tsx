@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Download, RefreshCw, BadgeAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatSummaryModelSizeLabelFromMb } from '@/lib/onboarding-summary-model';
+import { uiLanguageToEngineCode } from '@/i18n/languages';
+import { LANGUAGE_BADGES, modelSupportsLanguage } from '@/lib/model-languages';
 
 interface ModelInfo {
   name: string;
@@ -21,6 +24,10 @@ interface ModelInfo {
   context_size: number;
   description: string;
   gguf_file: string;
+  /** Languages the model can write summaries in. */
+  languages?: string[];
+  /** Languages the model is notably good at (Qwen is Alibaba's — strong in Chinese). */
+  strong_languages?: string[];
 }
 
 interface DownloadProgressInfo {
@@ -40,12 +47,28 @@ export function BuiltInModelManager({
   onModelSelect,
   layout = 'inline',
 }: BuiltInModelManagerProps) {
+  const { t, i18n } = useTranslation();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasFetched, setHasFetched] = useState<boolean>(false);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
   const [downloadProgressInfo, setDownloadProgressInfo] = useState<Record<string, DownloadProgressInfo>>({});
   const [downloadingModels, setDownloadingModels] = useState<Set<string>>(new Set());
+
+  // Summaries are written in the user's language, so the models that are actually
+  // *good* at that language should come first. Every built-in model can write both
+  // English and Chinese, so we rank rather than filter — hiding a usable model
+  // would be worse than showing it below a better one.
+  const activeLanguage = uiLanguageToEngineCode(i18n.language);
+
+  const rankedModels = useMemo(() => {
+    const usable = models.filter((m) => modelSupportsLanguage(m.languages, activeLanguage));
+    return [...usable].sort((a, b) => {
+      const aStrong = a.strong_languages?.includes(activeLanguage) ? 1 : 0;
+      const bStrong = b.strong_languages?.includes(activeLanguage) ? 1 : 0;
+      return bStrong - aStrong; // stable: preserves catalog order within each group
+    });
+  }, [models, activeLanguage]);
 
   const fetchModels = async () => {
     try {
@@ -287,7 +310,7 @@ export function BuiltInModelManager({
           layout === 'dialog' && 'max-h-[50vh] overflow-y-auto pr-2 pb-2'
         )}
       >
-        {models.map((model) => {
+        {rankedModels.map((model) => {
           const progress = downloadProgress[model.name];
           const progressInfo = downloadProgressInfo[model.name];
           const modelIsDownloading = downloadingModels.has(model.name);
@@ -295,6 +318,7 @@ export function BuiltInModelManager({
           const isNotDownloaded = model.status.type === 'not_downloaded';
           const isCorrupted = model.status.type === 'corrupted';
           const isError = model.status.type === 'error';
+          const isStrongHere = !!activeLanguage && !!model.strong_languages?.includes(activeLanguage);
 
           return (
             <div
@@ -320,6 +344,13 @@ export function BuiltInModelManager({
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="min-w-0 break-words text-base font-bold leading-snug text-gray-900">{model.display_name || model.name}</span>
+                    {isStrongHere && (
+                      <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                        {t('summaryModels.strongFor', {
+                          language: LANGUAGE_BADGES[activeLanguage!] ?? activeLanguage,
+                        })}
+                      </span>
+                    )}
                     {isAvailable && (
                       <>
                         <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-green-600">

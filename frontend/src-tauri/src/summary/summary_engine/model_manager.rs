@@ -101,6 +101,14 @@ pub struct ModelInfo {
 
     /// GGUF filename on disk
     pub gguf_file: String,
+
+    /// Languages this model can write summaries in.
+    #[serde(default)]
+    pub languages: Vec<String>,
+
+    /// Languages this model is notably good at (see ModelDef::strong_languages).
+    #[serde(default)]
+    pub strong_languages: Vec<String>,
 }
 
 // ============================================================================
@@ -278,6 +286,8 @@ impl ModelManager {
                 context_size: model_def.context_size,
                 description: model_def.description.clone(),
                 gguf_file: model_def.gguf_file.clone(),
+                languages: model_def.languages.clone(),
+                strong_languages: model_def.strong_languages.clone(),
             };
 
             models_map.insert(model_def.name.clone(), model_info);

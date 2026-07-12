@@ -2,18 +2,24 @@
 
 import { useState } from 'react';
 import { Globe, Pin } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { LanguagePickerPopover } from '@/components/LanguagePickerPopover';
 import { useRecentLanguages } from '@/hooks/useRecentLanguages';
 import { labelForCode } from '@/lib/summary-languages';
+import { FOLLOW_UI_LANGUAGE, LANGUAGE_METADATA } from '@/i18n/languages';
 
 export function SummaryLanguageSettings() {
+  const { t, i18n } = useTranslation();
   const { recents, pinned, addRecent, removeRecent, setPinned } = useRecentLanguages();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const togglePin = (code: string) => {
     setPinned(pinned === code ? null : code);
   };
+
+  const followsUi = pinned === FOLLOW_UI_LANGUAGE;
+  const uiLanguageName = LANGUAGE_METADATA[i18n.language]?.nativeName ?? i18n.language;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm relative">
@@ -27,6 +33,22 @@ export function SummaryLanguageSettings() {
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
+        {/* Follows the display language instead of storing a copy of it, so changing
+            the app language changes this too. */}
+        <button
+          type="button"
+          aria-pressed={followsUi}
+          onClick={() => setPinned(followsUi ? null : FOLLOW_UI_LANGUAGE)}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm hover:brightness-95 active:brightness-90 ${
+            followsUi
+              ? 'bg-blue-50 border-blue-200 text-blue-800'
+              : 'bg-gray-100 border-gray-200 text-gray-800'
+          }`}
+        >
+          {followsUi && <Pin size={13} className="fill-current" />}
+          {t('languagePreference.followUi', { language: uiLanguageName })}
+        </button>
+
         {recents.map((code) => {
           const isPinned = pinned === code;
           return (

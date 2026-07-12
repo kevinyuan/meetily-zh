@@ -15,6 +15,9 @@
     "all": "All languages",
     "description": "Only show models that support this language."
   },
+  "summaryModels": {
+    "strongFor": "Strong at {{language}}"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",

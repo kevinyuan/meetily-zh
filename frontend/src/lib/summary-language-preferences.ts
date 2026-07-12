@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { normaliseLanguageCode } from '@/lib/summary-languages';
+import i18n from '@/i18n';
+import { FOLLOW_UI_LANGUAGE, uiLanguageToEngineCode } from '@/i18n/languages';
 
 export const SUMMARY_LANGUAGE_RECENTS_KEY = 'summaryLanguageRecents';
 export const SUMMARY_LANGUAGE_DEFAULT_KEY = 'summaryLanguageDefault';
@@ -30,13 +32,37 @@ export interface SummaryLanguageDetectionResult {
   reason: SummaryLanguageDetectionReason;
 }
 
+/**
+ * The stored preference, which may be the `follow-ui` sentinel rather than a
+ * concrete language code.
+ *
+ * The sentinel is returned verbatim: `normaliseLanguageCode` would map it to null
+ * (it isn't a real language), silently degrading "follow the UI" into "auto-detect".
+ */
 export function readPinnedSummaryLanguageDefault(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return normaliseLanguageCode(window.localStorage.getItem(SUMMARY_LANGUAGE_DEFAULT_KEY));
+    const raw = window.localStorage.getItem(SUMMARY_LANGUAGE_DEFAULT_KEY);
+    if (raw === FOLLOW_UI_LANGUAGE) return FOLLOW_UI_LANGUAGE;
+    return normaliseLanguageCode(raw);
   } catch {
     return null;
   }
+}
+
+/**
+ * The pinned default as a concrete language code, resolving `follow-ui` against the
+ * current UI language. `null` means "no pin — detect from the transcript".
+ *
+ * Anything that *persists* the summary language (per-meeting DB rows) must use this
+ * rather than `readPinnedSummaryLanguageDefault`, or it would write the literal
+ * string "follow-ui" into the database as if it were a language.
+ */
+export function resolvePinnedSummaryLanguageDefault(uiLanguage?: string): string | null {
+  const pinned = readPinnedSummaryLanguageDefault();
+  if (pinned !== FOLLOW_UI_LANGUAGE) return pinned;
+
+  return normaliseLanguageCode(uiLanguageToEngineCode(uiLanguage ?? i18n.language));
 }
 
 export function writePinnedSummaryLanguageDefault(value: string | null): void {
@@ -146,7 +172,8 @@ export async function saveMeetingSummaryLanguage(
 }
 
 export async function applyPinnedSummaryLanguageToMeeting(meetingId: string): Promise<string | null> {
-  const pinned = readPinnedSummaryLanguageDefault();
+  // Resolved, not raw: this writes to the meeting's stored language.
+  const pinned = resolvePinnedSummaryLanguageDefault();
   if (!pinned) return null;
 
   await saveMeetingSummaryLanguage(meetingId, pinned);

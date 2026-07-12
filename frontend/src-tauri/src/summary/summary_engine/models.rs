@@ -157,6 +157,26 @@ pub struct ModelDef {
 
     /// Short description for UI
     pub description: String,
+
+    /// Languages this model can write summaries in.
+    ///
+    /// All four current models handle both English and Chinese, so this does not
+    /// (yet) hide anything — it exists so a future English-only model can be
+    /// filtered out correctly rather than silently offered to Chinese users.
+    pub languages: Vec<String>,
+
+    /// Languages this model is *notably good* at, as opposed to merely capable of.
+    ///
+    /// This is the useful signal for summaries: Qwen 3.5 is Alibaba's model and is
+    /// materially better at Chinese than Gemma, which supports Chinese but is
+    /// weaker at it. The UI badges and ranks on this rather than pretending the
+    /// weaker models don't exist.
+    pub strong_languages: Vec<String>,
+}
+
+/// Every built-in summary model can at least write English and Chinese.
+fn all_languages() -> Vec<String> {
+    vec!["en".to_string(), "zh".to_string()]
 }
 
 /// Get all available built-in AI models
@@ -175,6 +195,9 @@ pub fn get_available_models() -> Vec<ModelDef> {
             layer_count: 24,
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "Balanced Qwen 3.5 model for built-in summaries. Higher quality with modest local requirements.".to_string(),
+            languages: all_languages(),
+            // Qwen is Alibaba's model — Chinese is a first-class training language.
+            strong_languages: vec!["en".to_string(), "zh".to_string()],
         },
         // Qwen 3.5 4B - High quality tier
         ModelDef {
@@ -188,6 +211,8 @@ pub fn get_available_models() -> Vec<ModelDef> {
             layer_count: 32,
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
+            languages: all_languages(),
+            strong_languages: vec!["en".to_string(), "zh".to_string()],
         },
         // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
         ModelDef {
@@ -201,6 +226,9 @@ pub fn get_available_models() -> Vec<ModelDef> {
             layer_count: 35,
             sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
             description: "Balanced model. Great quality/speed trade-off. Requires ~3.5GB RAM.".to_string(),
+            languages: all_languages(),
+            // Gemma handles Chinese but is noticeably weaker at it than Qwen.
+            strong_languages: vec!["en".to_string()],
         },
         // Gemma 3 1B - Visible legacy tier retained for already-shipped users.
         ModelDef {
@@ -214,6 +242,8 @@ pub fn get_available_models() -> Vec<ModelDef> {
             layer_count: 26,
             sampling: SamplingParams::gemma3_instruct(vec!["<end_of_turn>".to_string()]),
             description: "Fastest model. Runs on any hardware with ~1GB RAM. Good for quick summaries.".to_string(),
+            languages: all_languages(),
+            strong_languages: vec!["en".to_string()],
         },
     ]
 }

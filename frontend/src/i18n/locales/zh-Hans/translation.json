@@ -15,6 +15,9 @@
     "all": "全部语言",
     "description": "仅显示支持该语言的模型。"
   },
+  "summaryModels": {
+    "strongFor": "擅长{{language}}"
+  },
   "common": {
     "cancel": "取消",
     "save": "保存",
