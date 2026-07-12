@@ -81,6 +81,7 @@ pub fn start_transcription_task<R: Runtime>(
             let engine_clone = match &transcription_engine {
                 TranscriptionEngine::Whisper(e) => TranscriptionEngine::Whisper(e.clone()),
                 TranscriptionEngine::Parakeet(e) => TranscriptionEngine::Parakeet(e.clone()),
+                TranscriptionEngine::SenseVoice(e) => TranscriptionEngine::SenseVoice(e.clone()),
                 TranscriptionEngine::Provider(p) => TranscriptionEngine::Provider(p.clone()),
             };
             let app_clone = app.clone();
@@ -156,6 +157,9 @@ pub fn start_transcription_task<R: Runtime>(
                                     let confidence_threshold = match &engine_clone {
                                         TranscriptionEngine::Whisper(_) | TranscriptionEngine::Provider(_) => 0.3,
                                         TranscriptionEngine::Parakeet(_) => 0.0, // Parakeet has no confidence, accept all
+                                        // SenseVoice decodes with CTC and reports no confidence
+                                        // either; a non-zero threshold would drop every chunk.
+                                        TranscriptionEngine::SenseVoice(_) => 0.0,
                                     };
 
                                     let confidence_str = match confidence_opt {
@@ -468,6 +472,49 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Err(e) => {
                     error!(
                         "Whisper transcription failed for chunk {}: {}",
+                        chunk.chunk_id, e
+                    );
+
+                    let transcription_error = TranscriptionError::EngineFailed(e.to_string());
+                    let _ = app.emit(
+                        "transcription-error",
+                        &serde_json::json!({
+                            "error": transcription_error.to_string(),
+                            "userMessage": format!("Transcription failed: {}", transcription_error),
+                            "actionable": false
+                        }),
+                    );
+
+                    Err(transcription_error)
+                }
+            }
+        }
+        TranscriptionEngine::SenseVoice(sensevoice_engine) => {
+            // SenseVoice takes an ISO-639-1 hint; unsupported codes and "auto" become
+            // None, which lets the model run its own (reliable) language ID.
+            let language = crate::get_language_preference_internal();
+
+            match sensevoice_engine
+                .transcribe_audio(speech_samples, language)
+                .await
+            {
+                Ok(text) => {
+                    let cleaned_text = text.trim().to_string();
+                    if cleaned_text.is_empty() {
+                        return Ok((String::new(), None, false));
+                    }
+
+                    info!(
+                        "SenseVoice transcription complete for chunk {}: '{}'",
+                        chunk.chunk_id, cleaned_text
+                    );
+
+                    // CTC decoding gives no confidence score and no partial results.
+                    Ok((cleaned_text, None, false))
+                }
+                Err(e) => {
+                    error!(
+                        "SenseVoice transcription failed for chunk {}: {}",
                         chunk.chunk_id, e
                     );
 

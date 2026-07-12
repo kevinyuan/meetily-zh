@@ -16,17 +16,34 @@ pub enum RecordingState {
     Stopping,
 }
 
+/// The menu-bar glyph: the Meetily pencil as a monochrome macOS *template* image
+/// (black pixels, shape carried by alpha). macOS tints template images itself —
+/// white on a dark menu bar, black on a light one, dimmed while the menu is open —
+/// so it must not carry the brand's purple. Shipped at @2x; macOS scales it.
+#[cfg(target_os = "macos")]
+const TRAY_ICON: &[u8] = include_bytes!("../icons/tray-icon@2x.png");
+
 pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     // Start with default menu, will update with actual state after initialization
     // Pass can_record=true initially, will be updated by update_tray_menu immediately
     let menu = build_menu(app, RecordingState::Stopped, true)?;
 
-    TrayIconBuilder::with_id("main-tray")
+    let builder = TrayIconBuilder::with_id("main-tray")
         .menu(&menu)
         .tooltip("Meetily")
-        .icon(app.default_window_icon().unwrap().clone())
-        .on_menu_event(|app, event| handle_menu_event(app, event.id.as_ref()))
-        .build(app)?;
+        .on_menu_event(|app, event| handle_menu_event(app, event.id.as_ref()));
+
+    // On macOS use the template glyph. Elsewhere the menu bar has no tinting
+    // convention, so keep the full-colour app icon.
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .icon(tauri::image::Image::from_bytes(TRAY_ICON)?)
+        .icon_as_template(true);
+
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.icon(app.default_window_icon().unwrap().clone());
+
+    builder.build(app)?;
 
     // Update tray menu with actual recording state after creation
     update_tray_menu(app);
