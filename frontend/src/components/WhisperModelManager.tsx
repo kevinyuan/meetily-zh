@@ -8,7 +8,6 @@ import i18n from '@/i18n';
 import {
   ModelInfo,
   ModelStatus,
-  getModelIcon,
   formatFileSize,
   getModelPerformanceBadge,
   isQuantizedModel,
@@ -187,7 +186,7 @@ export function ModelManager({
           progressThrottleRef.current.delete(modelName);
 
           toast.success(
-            `${getModelIcon(model?.accuracy || 'Good')} ${i18n.t('modelsArea.toast.modelReady', { model: displayName })}`,
+            i18n.t('modelsArea.toast.modelReady', { model: displayName }),
             {
               description: i18n.t('modelsArea.toast.modelReadyDescription'),
               duration: 4000
@@ -566,7 +565,6 @@ function ModelCard({
           <div className="flex-1">
             {/* Model Name and Tagline */}
             <div className="flex items-center gap-2 flex-wrap mb-2">
-              <span className="text-2xl">{getModelIcon(model.accuracy)}</span>
               <h3 className="font-semibold text-gray-900">{displayName}</h3>
               <span className="text-sm text-gray-500">•</span>
               <span className="text-sm text-gray-500">{getModelTagline(model.name, model.speed, model.accuracy)}</span>

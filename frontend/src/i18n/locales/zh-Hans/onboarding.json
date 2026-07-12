@@ -28,7 +28,7 @@
       "description": "转录引擎下载完成后，你就可以开始使用 Meetily。",
       "transcriptionEngine": "转录引擎",
       "summaryEngine": "摘要引擎",
-      "transcriptionSize": "约 670 MB",
+      "transcriptionSize": "约 236 MB",
       "waiting": "等待中…",
       "failed": "失败",
       "errorTitle": "下载出错",

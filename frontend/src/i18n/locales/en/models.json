@@ -106,10 +106,10 @@
       "finalizing": "Finalizing...",
       "downloadingModel": "Downloading {{model}}",
       "percentComplete": "{{percent}}% complete",
-      "completedLoading": "✓ Download completed, loading model...",
-      "summaryAvailable": "📦 {{downloaded}} of {{total}} models available",
-      "summaryTotal": "💾 {{size}} total",
-      "summaryLocal": "✓ Models run locally - no internet required for transcription"
+      "completedLoading": "Download completed, loading model...",
+      "summaryAvailable": "{{downloaded}} of {{total}} models available",
+      "summaryTotal": "{{size}} total",
+      "summaryLocal": "Models run locally - no internet required for transcription"
     },
     "downloadToast": {
       "transcriptionModel": "Transcription Model (Parakeet)",

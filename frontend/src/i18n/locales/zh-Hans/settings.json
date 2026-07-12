@@ -35,14 +35,15 @@
     "transcript": {
       "modelLabel": "转录模型",
       "providers": {
-        "parakeet": "⚡ Parakeet（推荐 - 实时 / 准确）",
-        "localWhisper": "🏠 本地 Whisper（高准确度）",
-        "senseVoice": "🀄 SenseVoice（中文 + 英语/日语/韩语/粤语）"
+        "parakeet": "Parakeet（推荐 - 实时 / 准确）",
+        "localWhisper": "本地 Whisper（高准确度）",
+        "senseVoice": "SenseVoice（中文 + 英语/日语/韩语/粤语）"
       },
       "unsupported": {
-        "parakeet": "Parakeet 不支持中文。请选择 SenseVoice 或本地 Whisper 来转录中文。",
-        "generic": "所选引擎不支持筛选的语言。"
-      }
+        "parakeet": "Parakeet 仅支持英文转录。要转录{{language}}，请选择 SenseVoice 或本地 Whisper。",
+        "generic": "所选引擎无法转录{{language}}。请在下方选择其他引擎。"
+      },
+      "filteredBy": "仅显示可转录{{language}}的引擎。"
     },
     "preferences": {
       "loading": "正在加载偏好设置…",

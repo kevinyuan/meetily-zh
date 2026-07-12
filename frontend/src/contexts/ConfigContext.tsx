@@ -7,6 +7,8 @@ import { configService, ModelConfig } from '@/services/configService';
 import { invoke } from '@tauri-apps/api/core';
 import Analytics from '@/lib/analytics';
 import { BetaFeatures, BetaFeatureKey, loadBetaFeatures, saveBetaFeatures } from '@/types/betaFeatures';
+import { useTranslation } from 'react-i18next';
+import { resolveTranscriptionLanguagePreference } from '@/lib/model-languages';
 
 export interface OllamaModel {
   name: string;
@@ -97,6 +99,9 @@ const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
+  // Needed to resolve the `follow-ui` language sentinel before it reaches Rust.
+  const { i18n } = useTranslation();
+
   // Model configuration state
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
     provider: 'ollama',
@@ -211,18 +216,24 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     loadTranscriptConfig();
   }, []);
 
-  // Sync language preference to Rust on mount (fixes startup desync bug)
+  // Keep Rust's language preference in sync.
+  //
+  // The stored preference may be the `follow-ui` sentinel, which is not a language:
+  // it must be resolved to a real code here, or Whisper would be handed the literal
+  // string "follow-ui" as a language. Re-runs when the UI language changes, so a
+  // "follow the display language" choice actually follows it.
   useEffect(() => {
-    if (selectedLanguage) {
-      invoke('set_language_preference', { language: selectedLanguage })
-        .then(() => {
-          console.log('[ConfigContext] Synced language preference to Rust on startup:', selectedLanguage);
-        })
-        .catch(err => {
-          console.error('[ConfigContext] Failed to sync language preference to Rust on startup:', err);
-        });
-    }
-  }, []); 
+    if (!selectedLanguage) return;
+
+    const effective = resolveTranscriptionLanguagePreference(selectedLanguage, i18n.language);
+    invoke('set_language_preference', { language: effective })
+      .then(() => {
+        console.log('[ConfigContext] Synced language preference to Rust:', effective);
+      })
+      .catch(err => {
+        console.error('[ConfigContext] Failed to sync language preference to Rust:', err);
+      });
+  }, [selectedLanguage, i18n.language]);
 
   // Load model configuration on mount
   useEffect(() => {

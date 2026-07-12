@@ -42,6 +42,39 @@ export function resolveLanguageFilter(
   return filter;
 }
 
+/**
+ * Resolve the *transcription language* preference into a concrete engine code, or
+ * `null` when the choice imposes no constraint on which models are usable.
+ *
+ * `auto` and `auto-translate` hand the decision to the engine, so every model stays
+ * eligible. `follow-ui` tracks the display language. Anything else is a real
+ * language the engine must actually support.
+ */
+export function resolveTranscriptionLanguage(
+  language: string | null | undefined,
+  uiLanguage: string,
+): string | null {
+  if (!language || language === 'auto' || language === 'auto-translate') return null;
+  if (language === FOLLOW_UI_LANGUAGE) return uiLanguageToEngineCode(uiLanguage);
+  // Chinese scripts collapse: engines take `zh`, not `zh-Hans`.
+  return language.split('-')[0];
+}
+
+/**
+ * The value to hand the speech engine, as opposed to the value we filter models by.
+ *
+ * Same as `resolveTranscriptionLanguage`, except `auto` / `auto-translate` are passed
+ * through verbatim — the engines understand them (Whisper translates on
+ * `auto-translate`), whereas `follow-ui` is ours alone and must never be sent down.
+ */
+export function resolveTranscriptionLanguagePreference(
+  language: string,
+  uiLanguage: string,
+): string {
+  if (language === FOLLOW_UI_LANGUAGE) return uiLanguageToEngineCode(uiLanguage);
+  return language;
+}
+
 /** Does this provider support the (already resolved) language? */
 export function providerSupportsLanguage(provider: string, language: string | null): boolean {
   if (!language) return true;

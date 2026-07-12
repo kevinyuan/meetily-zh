@@ -106,10 +106,10 @@
       "finalizing": "正在完成…",
       "downloadingModel": "正在下载 {{model}}",
       "percentComplete": "已完成 {{percent}}%",
-      "completedLoading": "✓ 下载完成，正在加载模型…",
-      "summaryAvailable": "📦 已下载 {{downloaded}} / {{total}} 个模型",
-      "summaryTotal": "💾 共 {{size}}",
-      "summaryLocal": "✓ 模型在本地运行 — 转录无需联网"
+      "completedLoading": "下载完成，正在加载模型…",
+      "summaryAvailable": "已下载 {{downloaded}} / {{total}} 个模型",
+      "summaryTotal": "共 {{size}}",
+      "summaryLocal": "模型在本地运行 — 转录无需联网"
     },
     "downloadToast": {
       "transcriptionModel": "转录模型（Parakeet）",

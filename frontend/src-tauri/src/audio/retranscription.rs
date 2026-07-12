@@ -2,10 +2,13 @@
 
 use crate::audio::decoder::decode_audio_file;
 use crate::audio::vad::get_speech_chunks_with_progress;
-use super::common::{create_transcript_segments, split_segment_at_silence, write_transcripts_json};
+use super::common::{
+    create_transcript_segments, split_segment_at_silence, write_transcripts_json, Engine,
+};
 use super::constants::AUDIO_EXTENSIONS;
-use crate::config::{DEFAULT_WHISPER_MODEL, DEFAULT_PARAKEET_MODEL};
+use crate::config::{DEFAULT_WHISPER_MODEL, DEFAULT_PARAKEET_MODEL, DEFAULT_SENSEVOICE_MODEL};
 use crate::parakeet_engine::ParakeetEngine;
+use crate::sensevoice_engine::SenseVoiceEngine;
 use crate::state::AppState;
 use crate::whisper_engine::WhisperEngine;
 use anyhow::{anyhow, Result};
@@ -101,11 +104,11 @@ pub async fn start_retranscription<R: Runtime>(
     // Reset cancellation flag
     RETRANSCRIPTION_CANCELLED.store(false, Ordering::SeqCst);
 
-    let use_parakeet = provider.as_deref() == Some("parakeet");
+    let engine_kind = Engine::from_provider(provider.as_deref());
     let result = run_retranscription(app.clone(), meeting_id.clone(), meeting_folder_path, language, model, provider).await;
 
     // Unload the engine after the batch job (success, failure, or cancellation)
-    super::common::unload_engine_after_batch(use_parakeet).await;
+    super::common::unload_engine_after_batch(engine_kind).await;
 
     // Guard will automatically clear flag on drop
     // No need for manual: RETRANSCRIPTION_IN_PROGRESS.store(false, Ordering::SeqCst);
@@ -181,7 +184,7 @@ async fn run_retranscription<R: Runtime>(
     let audio_path = find_audio_file(&folder_path)?;
 
     // Determine which provider to use (default to whisper)
-    let use_parakeet = provider.as_deref() == Some("parakeet");
+    let engine_kind = Engine::from_provider(provider.as_deref());
 
     info!(
         "Starting retranscription for meeting {} with language {:?}, model {:?}, provider {:?}",
@@ -299,13 +302,18 @@ async fn run_retranscription<R: Runtime>(
     emit_progress(&app, &meeting_id, "transcribing", 25, "Loading transcription engine...");
 
     // Initialize the appropriate engine once (not per-segment)
-    let whisper_engine = if !use_parakeet {
+    let whisper_engine = if engine_kind == Engine::Whisper {
         Some(get_or_init_whisper(&app, model.as_deref()).await?)
     } else {
         None
     };
-    let parakeet_engine = if use_parakeet {
+    let parakeet_engine = if engine_kind == Engine::Parakeet {
         Some(get_or_init_parakeet(&app, model.as_deref()).await?)
+    } else {
+        None
+    };
+    let sensevoice_engine = if engine_kind == Engine::SenseVoice {
+        Some(get_or_init_sensevoice(&app, model.as_deref()).await?)
     } else {
         None
     };
@@ -368,20 +376,33 @@ async fn run_retranscription<R: Runtime>(
         }
 
         // Transcribe this segment
-        let (text, conf) = if use_parakeet {
-            let engine = parakeet_engine.as_ref().unwrap();
-            let text = engine
-                .transcribe_audio(segment.samples.clone())
-                .await
-                .map_err(|e| anyhow!("Parakeet transcription failed on segment {}: {}", i, e))?;
-            (text, 0.9f32)
-        } else {
-            let engine = whisper_engine.as_ref().unwrap();
-            let (text, conf, _) = engine
-                .transcribe_audio_with_confidence(segment.samples.clone(), language.clone())
-                .await
-                .map_err(|e| anyhow!("Whisper transcription failed on segment {}: {}", i, e))?;
-            (text, conf)
+        let (text, conf) = match engine_kind {
+            Engine::Parakeet => {
+                let engine = parakeet_engine.as_ref().unwrap();
+                let text = engine
+                    .transcribe_audio(segment.samples.clone())
+                    .await
+                    .map_err(|e| anyhow!("Parakeet transcription failed on segment {}: {}", i, e))?;
+                (text, 0.9f32)
+            }
+            Engine::SenseVoice => {
+                let engine = sensevoice_engine.as_ref().unwrap();
+                let text = engine
+                    .transcribe_audio(segment.samples.clone(), language.clone())
+                    .await
+                    .map_err(|e| {
+                        anyhow!("SenseVoice transcription failed on segment {}: {}", i, e)
+                    })?;
+                (text, 0.9f32)
+            }
+            Engine::Whisper => {
+                let engine = whisper_engine.as_ref().unwrap();
+                let (text, conf, _) = engine
+                    .transcribe_audio_with_confidence(segment.samples.clone(), language.clone())
+                    .await
+                    .map_err(|e| anyhow!("Whisper transcription failed on segment {}: {}", i, e))?;
+                (text, conf)
+            }
         };
 
         // Skip empty transcripts
@@ -716,6 +737,105 @@ async fn get_configured_parakeet_model<R: Runtime>(app: &AppHandle<R>) -> Result
             // Default to configured Parakeet model if no config exists
             warn!("No transcript config found, using default Parakeet model");
             Ok(DEFAULT_PARAKEET_MODEL.to_string())
+        }
+    }
+}
+
+/// Get or initialize the SenseVoice engine, auto-loading the model if needed
+async fn get_or_init_sensevoice<R: Runtime>(
+    app: &AppHandle<R>,
+    requested_model: Option<&str>,
+) -> Result<Arc<SenseVoiceEngine>> {
+    use crate::sensevoice_engine::commands::{sensevoice_init, SENSEVOICE_ENGINE};
+
+    // No-op if the engine was already created during app setup
+    sensevoice_init()
+        .await
+        .map_err(|e| anyhow!("Failed to initialize SenseVoice engine: {}", e))?;
+
+    let engine = {
+        let guard = SENSEVOICE_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+        guard.as_ref().cloned()
+    };
+
+    match engine {
+        Some(e) => {
+            // Determine which model to use
+            let target_model = match requested_model {
+                Some(model) => model.to_string(),
+                None => get_configured_sensevoice_model(app).await?,
+            };
+
+            // Check if the correct model is already loaded
+            let current_model = e.get_current_model().await;
+            let needs_load = match &current_model {
+                Some(loaded) => loaded != &target_model,
+                None => true,
+            };
+
+            if needs_load {
+                info!(
+                    "Loading SenseVoice model '{}' (current: {:?})",
+                    target_model, current_model
+                );
+
+                match e.load_model(&target_model).await {
+                    Ok(_) => {
+                        info!("SenseVoice model '{}' loaded successfully", target_model);
+                        Ok(e)
+                    }
+                    Err(load_err) => {
+                        error!("Failed to load SenseVoice model '{}': {}", target_model, load_err);
+                        Err(anyhow!("Failed to load SenseVoice model '{}': {}", target_model, load_err))
+                    }
+                }
+            } else {
+                info!("SenseVoice model '{}' already loaded", target_model);
+                Ok(e)
+            }
+        }
+        None => Err(anyhow!("SenseVoice engine not initialized")),
+    }
+}
+
+/// Get the configured SenseVoice model name from the database
+async fn get_configured_sensevoice_model<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
+    debug!("Getting configured SenseVoice model from database...");
+
+    let app_state = app
+        .try_state::<AppState>()
+        .ok_or_else(|| {
+            error!("App state not available");
+            anyhow!("App state not available")
+        })?;
+
+    // Query the transcript settings from the database
+    let result: Option<(String, String)> = sqlx::query_as(
+        "SELECT provider, model FROM transcript_settings WHERE id = '1'"
+    )
+    .fetch_optional(app_state.db_manager.pool())
+    .await
+    .map_err(|e| {
+        error!("Failed to query transcript config: {}", e);
+        anyhow!("Failed to query transcript config: {}", e)
+    })?;
+
+    match result {
+        Some((provider, model)) => {
+            info!("Found transcript config: provider={}, model={}", provider, model);
+
+            if provider == "senseVoice" {
+                Ok(model)
+            } else {
+                // Default to configured SenseVoice model
+                warn!("Configured provider is not SenseVoice, using default model");
+                Ok(DEFAULT_SENSEVOICE_MODEL.to_string())
+            }
+        },
+        None => {
+            // Default to configured SenseVoice model if no config exists
+            warn!("No transcript config found, using default SenseVoice model");
+            Ok(DEFAULT_SENSEVOICE_MODEL.to_string())
         }
     }
 }

@@ -14,10 +14,31 @@ pub(crate) async fn acquire_engine_lifecycle_lock() -> OwnedMutexGuard<()> {
     ENGINE_LIFECYCLE_LOCK.clone().lock_owned().await
 }
 
+/// Which transcription engine a batch job (import or retranscription) runs on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Engine {
+    Whisper,
+    Parakeet,
+    SenseVoice,
+}
+
+impl Engine {
+    /// Map a provider string (from the import/retranscribe dialog or the stored
+    /// transcript config) to an engine. Unknown or missing providers default to
+    /// Whisper, preserving the previous behaviour.
+    pub(crate) fn from_provider(provider: Option<&str>) -> Self {
+        match provider {
+            Some("parakeet") => Engine::Parakeet,
+            Some("senseVoice") => Engine::SenseVoice,
+            _ => Engine::Whisper,
+        }
+    }
+}
+
 /// Unload the transcription engine after a batch job (import or retranscription).
 /// Skips unloading if a live recording is currently in progress, since recording
 /// uses the same global engine instances.
-pub(crate) async fn unload_engine_after_batch(use_parakeet: bool) {
+pub(crate) async fn unload_engine_after_batch(engine_kind: Engine) {
     let _engine_lifecycle_guard = acquire_engine_lifecycle_lock().await;
 
     if crate::audio::recording_commands::is_recording().await {
@@ -25,23 +46,36 @@ pub(crate) async fn unload_engine_after_batch(use_parakeet: bool) {
         return;
     }
 
-    if use_parakeet {
-        use crate::parakeet_engine::commands::PARAKEET_ENGINE;
-        let engine = {
-            let guard = PARAKEET_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
-            guard.as_ref().cloned()
-        };
-        if let Some(e) = engine {
-            e.unload_model().await;
+    match engine_kind {
+        Engine::Parakeet => {
+            use crate::parakeet_engine::commands::PARAKEET_ENGINE;
+            let engine = {
+                let guard = PARAKEET_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+                guard.as_ref().cloned()
+            };
+            if let Some(e) = engine {
+                e.unload_model().await;
+            }
         }
-    } else {
-        use crate::whisper_engine::commands::WHISPER_ENGINE;
-        let engine = {
-            let guard = WHISPER_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
-            guard.as_ref().cloned()
-        };
-        if let Some(e) = engine {
-            e.unload_model().await;
+        Engine::SenseVoice => {
+            use crate::sensevoice_engine::commands::SENSEVOICE_ENGINE;
+            let engine = {
+                let guard = SENSEVOICE_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+                guard.as_ref().cloned()
+            };
+            if let Some(e) = engine {
+                e.unload_model().await;
+            }
+        }
+        Engine::Whisper => {
+            use crate::whisper_engine::commands::WHISPER_ENGINE;
+            let engine = {
+                let guard = WHISPER_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+                guard.as_ref().cloned()
+            };
+            if let Some(e) = engine {
+                e.unload_model().await;
+            }
         }
     }
 }

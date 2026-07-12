@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
 import { useConfig } from '@/contexts/ConfigContext';
+import { FOLLOW_UI_LANGUAGE, LANGUAGE_METADATA } from '@/i18n/languages';
 
 export interface Language {
   code: string;
@@ -136,9 +137,11 @@ export function LanguageSelection({
   disabled = false,
   provider = 'localWhisper'
 }: LanguageSelectionProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [saving, setSaving] = useState(false);
   const { setSelectedLanguage } = useConfig();
+
+  const uiLanguageName = LANGUAGE_METADATA[i18n.language]?.nativeName ?? i18n.language;
 
   // Each engine advertises a different language surface:
   // - Parakeet: auto-detect only (it ignores any language hint we pass)
@@ -208,6 +211,11 @@ export function LanguageSelection({
           disabled={disabled || saving}
           className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
         >
+          {/* Tracks the display language rather than storing a copy of it, so changing
+              the app language changes what the engine listens for too. */}
+          <option value={FOLLOW_UI_LANGUAGE}>
+            {t('languagePreference.followUi', { language: uiLanguageName })}
+          </option>
           {availableLanguages.map((language) => (
             <option key={language.code} value={language.code}>
               {language.name}

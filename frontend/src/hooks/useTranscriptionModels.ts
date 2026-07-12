@@ -8,7 +8,7 @@ export interface RawModelInfo {
 }
 
 export interface ModelOption {
-  provider: 'whisper' | 'parakeet';
+  provider: 'whisper' | 'parakeet' | 'senseVoice';
   name: string;
   displayName: string;
   size_mb: number;
@@ -20,7 +20,7 @@ interface TranscriptModelConfig {
 }
 
 /**
- * Custom hook for fetching and managing transcription models (Whisper and Parakeet).
+ * Custom hook for fetching and managing transcription models (Whisper, Parakeet and SenseVoice).
  *
  * This hook centralizes the model fetching logic that was previously duplicated
  * in ImportAudioDialog and RetranscribeDialog components.
@@ -53,7 +53,7 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
         .map((m) => ({
           provider: 'whisper' as const,
           name: m.name,
-          displayName: `🏠 Whisper: ${m.name}`,
+          displayName: `Whisper: ${m.name}`,
           size_mb: m.size_mb,
         }));
       allModels.push(...availableWhisper);
@@ -69,12 +69,28 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
         .map((m) => ({
           provider: 'parakeet' as const,
           name: m.name,
-          displayName: `⚡ Parakeet: ${m.name}`,
+          displayName: `Parakeet: ${m.name}`,
           size_mb: m.size_mb,
         }));
       allModels.push(...availableParakeet);
     } catch (err) {
       console.error('Failed to fetch Parakeet models:', err);
+    }
+
+    // Fetch SenseVoice models
+    try {
+      const senseVoiceModels = await invoke<RawModelInfo[]>('sensevoice_get_available_models');
+      const availableSenseVoice = senseVoiceModels
+        .filter((m) => m.status === 'Available')
+        .map((m) => ({
+          provider: 'senseVoice' as const,
+          name: m.name,
+          displayName: `SenseVoice: ${m.name}`,
+          size_mb: m.size_mb,
+        }));
+      allModels.push(...availableSenseVoice);
+    } catch (err) {
+      console.error('Failed to fetch SenseVoice models:', err);
     }
 
     setAvailableModels(allModels);
@@ -88,7 +104,8 @@ export function useTranscriptionModels(transcriptModelConfig: TranscriptModelCon
     const configuredMatch = allModels.find(
       (m) =>
         (configuredProvider === 'localWhisper' && m.provider === 'whisper' && m.name === configuredModel) ||
-        (configuredProvider === 'parakeet' && m.provider === 'parakeet' && m.name === configuredModel)
+        (configuredProvider === 'parakeet' && m.provider === 'parakeet' && m.name === configuredModel) ||
+        (configuredProvider === 'senseVoice' && m.provider === 'senseVoice' && m.name === configuredModel)
     );
 
     // Only set default model if user hasn't manually selected one

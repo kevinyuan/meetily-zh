@@ -35,14 +35,15 @@
     "transcript": {
       "modelLabel": "Transcript Model",
       "providers": {
-        "parakeet": "⚡ Parakeet (Recommended - Real-time / Accurate)",
-        "localWhisper": "🏠 Local Whisper (High Accuracy)",
-        "senseVoice": "🀄 SenseVoice (Chinese + EN/JA/KO/Cantonese)"
+        "parakeet": "Parakeet (Recommended - Real-time / Accurate)",
+        "localWhisper": "Local Whisper (High Accuracy)",
+        "senseVoice": "SenseVoice (Chinese + EN/JA/KO/Cantonese)"
       },
       "unsupported": {
-        "parakeet": "Parakeet does not support Chinese. Pick SenseVoice or Local Whisper to transcribe Chinese.",
-        "generic": "The selected engine does not support the filtered language."
-      }
+        "parakeet": "Parakeet only transcribes English. To transcribe {{language}}, choose SenseVoice or Local Whisper.",
+        "generic": "The selected engine cannot transcribe {{language}}. Choose another engine below."
+      },
+      "filteredBy": "Showing engines that can transcribe {{language}}."
     },
     "preferences": {
       "loading": "Loading Preferences...",

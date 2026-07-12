@@ -30,7 +30,6 @@ export interface SenseVoiceEngineState {
 // User-friendly model display configuration
 export interface ModelDisplayInfo {
   friendlyName: string;
-  icon: string;
   tagline: string;
   recommended?: boolean;
   tier: 'fastest' | 'balanced' | 'precise';
@@ -39,7 +38,6 @@ export interface ModelDisplayInfo {
 export const MODEL_DISPLAY_CONFIG: Record<string, ModelDisplayInfo> = {
   'sense-voice-small-int8': {
     friendlyName: 'SenseVoice Small',
-    icon: '🀄',
     tagline: '60x real-time • Chinese-optimised, multilingual',
     recommended: true,
     tier: 'fastest'

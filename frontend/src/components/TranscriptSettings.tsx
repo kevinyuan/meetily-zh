@@ -9,13 +9,12 @@ import { Eye, EyeOff, Lock, Unlock } from 'lucide-react';
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
 import { SenseVoiceModelManager } from './SenseVoiceModelManager';
-import { ModelLanguageFilter } from './ModelLanguageFilter';
-import { FOLLOW_UI_LANGUAGE } from '@/i18n/languages';
+import { LanguageSelection } from './LanguageSelection';
+import { useConfig } from '@/contexts/ConfigContext';
 import {
-    LanguageFilter,
-    MODEL_FILTER_STORAGE_KEY,
+    LANGUAGE_BADGES,
     providerSupportsLanguage,
-    resolveLanguageFilter,
+    resolveTranscriptionLanguage,
 } from '@/lib/model-languages';
 
 
@@ -42,24 +41,18 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
     const [isLockButtonVibrating, setIsLockButtonVibrating] = useState<boolean>(false);
     const [uiProvider, setUiProvider] = useState<TranscriptModelProps['provider']>(transcriptModelConfig.provider);
 
-    // Which language the model list is filtered to. Defaults to following the UI
-    // language: a user running the app in Chinese sees Chinese-capable models
-    // without needing to know which engine handles what.
-    const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(FOLLOW_UI_LANGUAGE);
+    // The transcription language is the single source of truth on this page: it is
+    // what the engine actually listens for, AND what the model list is filtered by.
+    //
+    // Previously these were two separate controls — a "model language filter" that
+    // only filtered the list, and a transcription-language selector that lived in a
+    // different screen entirely. Picking 中文 in the filter therefore did not make
+    // the engine transcribe Chinese, which is exactly the wrong thing to imply.
+    const { selectedLanguage, setSelectedLanguage } = useConfig();
 
-    useEffect(() => {
-        const stored = window.localStorage.getItem(MODEL_FILTER_STORAGE_KEY);
-        if (stored) setLanguageFilter(stored);
-    }, []);
-
-    const handleLanguageFilterChange = (value: LanguageFilter) => {
-        setLanguageFilter(value);
-        window.localStorage.setItem(MODEL_FILTER_STORAGE_KEY, value);
-    };
-
-    // Resolved lazily against the *current* UI language, so switching the display
-    // language re-filters immediately rather than leaving a stale code behind.
-    const activeLanguage = resolveLanguageFilter(languageFilter, i18n.language);
+    // 'auto' / 'auto-translate' mean "let the engine decide", so they impose no
+    // constraint on which models are usable. A concrete code does.
+    const activeLanguage = resolveTranscriptionLanguage(selectedLanguage, i18n.language);
 
     // The selected provider always stays in the list, even when it doesn't match the
     // filter — dropping it would leave the Select showing an empty value, and
@@ -163,7 +156,16 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                     <h3 className="text-lg font-semibold text-gray-900">Transcript Settings</h3>
                 </div> */}
                 <div className="space-y-4 pb-6">
-                    <ModelLanguageFilter value={languageFilter} onChange={handleLanguageFilterChange} />
+                    {/* One language control for this page. It sets what the engine
+                        listens for, and the model list below narrows to the engines
+                        that can actually handle it. */}
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                        <LanguageSelection
+                            selectedLanguage={selectedLanguage}
+                            onLanguageChange={setSelectedLanguage}
+                            provider={uiProvider}
+                        />
+                    </div>
 
                     <div>
                         <Label className="block text-sm font-medium text-gray-700 mb-1">
@@ -221,11 +223,23 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
 
                         </div>
 
+                        {activeLanguage && !selectedProviderUnsupported && (
+                            <p className="mx-1 mt-2 text-sm text-gray-500">
+                                {t('settingsArea.transcript.filteredBy', {
+                                    language: LANGUAGE_BADGES[activeLanguage] ?? activeLanguage,
+                                })}
+                            </p>
+                        )}
+
                         {selectedProviderUnsupported && (
                             <p className="mx-1 mt-2 text-sm text-amber-600">
                                 {uiProvider === 'parakeet'
-                                    ? t('settingsArea.transcript.unsupported.parakeet')
-                                    : t('settingsArea.transcript.unsupported.generic')}
+                                    ? t('settingsArea.transcript.unsupported.parakeet', {
+                                          language: LANGUAGE_BADGES[activeLanguage!] ?? activeLanguage,
+                                      })
+                                    : t('settingsArea.transcript.unsupported.generic', {
+                                          language: LANGUAGE_BADGES[activeLanguage!] ?? activeLanguage,
+                                      })}
                             </p>
                         )}
                     </div>

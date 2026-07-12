@@ -28,7 +28,7 @@
       "description": "You can start using Meetily after downloading the Transcription Engine.",
       "transcriptionEngine": "Transcription Engine",
       "summaryEngine": "Summary Engine",
-      "transcriptionSize": "~670 MB",
+      "transcriptionSize": "~236 MB",
       "waiting": "Waiting...",
       "failed": "Failed",
       "errorTitle": "Download Error",

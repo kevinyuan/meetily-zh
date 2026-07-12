@@ -131,15 +131,6 @@ export const MODEL_CONFIGS: Record<string, Partial<ModelInfo>> = {
   }
 };
 
-// Helper functions
-export function getModelIcon(accuracy: ModelAccuracy): string {
-  switch (accuracy) {
-    case 'High': return '🔥';
-    case 'Good': return '⚡';
-    case 'Decent': return '🚀';
-    default: return '📊';
-  }
-}
 
 export function getStatusColor(status: ModelStatus): string {
   if (status === 'Available') return 'green';

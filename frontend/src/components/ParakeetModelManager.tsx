@@ -137,7 +137,7 @@ export function ParakeetModelManager({
           progressThrottleRef.current.delete(modelName);
 
           toast.success(
-            `${displayInfo?.icon || '✓'} ${i18n.t('modelsArea.toast.modelReady', { model: displayName })}`,
+            i18n.t('modelsArea.toast.modelReady', { model: displayName }),
             {
               description: i18n.t('modelsArea.toast.modelReadyDescription'),
               duration: 4000
@@ -444,7 +444,6 @@ function ModelCard({
   const [isHovered, setIsHovered] = useState(false);
   const displayInfo = getModelDisplayInfo(model.name);
   const displayName = displayInfo?.friendlyName || model.name;
-  const icon = displayInfo?.icon || '📦';
   const tagline = displayInfo?.tagline || model.description || '';
 
   const isAvailable = model.status === 'Available';
@@ -489,7 +488,6 @@ function ModelCard({
           <div className="flex-1">
             {/* Model Name */}
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-2xl">{icon}</span>
               <h3 className="font-semibold text-gray-900">{displayName}</h3>
               {isSelected && isAvailable && (
                 <motion.span

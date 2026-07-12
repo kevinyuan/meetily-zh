@@ -19,7 +19,11 @@ pub struct OnboardingStatus {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ModelStatus {
-    pub parakeet: String,  // "downloaded" | "not_downloaded" | "downloading"
+    /// State of the default transcription model. Engine-agnostic since the default
+    /// is now SenseVoice rather than Parakeet; the `parakeet` alias keeps status
+    /// files written by older builds readable.
+    #[serde(alias = "parakeet")]
+    pub transcription: String,  // "downloaded" | "not_downloaded" | "downloading"
     pub summary: String,   // Generic field for summary model (Qwen 3.5 or legacy Gemma variants)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_summary_model: Option<String>,
@@ -32,7 +36,7 @@ impl Default for OnboardingStatus {
             completed: false,
             current_step: 1,
             model_status: ModelStatus {
-                parakeet: "not_downloaded".to_string(),
+                transcription: "not_downloaded".to_string(),
                 summary: "not_downloaded".to_string(),  // Changed from gemma
                 selected_summary_model: None,
             },
@@ -191,16 +195,18 @@ pub async fn complete_onboarding<R: Runtime>(
     }
     info!("Saved builtin-ai model config: model={}", model);
 
-    // Save transcription model config (parakeet provider) - always parakeet
+    // Save transcription model config. SenseVoice is the default engine: it covers
+    // Chinese, English, Japanese, Korean and Cantonese, where Parakeet is
+    // English-only. Users can switch engines afterwards in Settings.
     if let Err(e) = SettingsRepository::save_transcript_config(
         pool,
-        "parakeet",
-        crate::config::DEFAULT_PARAKEET_MODEL,
+        "senseVoice",
+        crate::config::DEFAULT_SENSEVOICE_MODEL,
     ).await {
         error!("Failed to save transcription model config: {}", e);
         return Err(format!("Failed to save transcription model config: {}", e));
     }
-    info!("Saved transcription model config: provider=parakeet, model={}", crate::config::DEFAULT_PARAKEET_MODEL);
+    info!("Saved transcription model config: provider=senseVoice, model={}", crate::config::DEFAULT_SENSEVOICE_MODEL);
 
     // Step 2: Only NOW mark onboarding as complete (after DB operations succeed)
     let mut status = load_onboarding_status(&app)
@@ -209,7 +215,7 @@ pub async fn complete_onboarding<R: Runtime>(
 
     status.completed = true;
     status.current_step = 4; // Max step (4 on macOS with permissions, 3 on other platforms)
-    status.model_status.parakeet = "downloaded".to_string();
+    status.model_status.transcription = "downloaded".to_string();
     status.model_status.summary = "downloaded".to_string();
     status.model_status.selected_summary_model = Some(model.clone());
 
