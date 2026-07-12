@@ -39,6 +39,7 @@
 
 mod defaults;
 mod loader;
+mod localize;
 mod types;
 
 // Re-export public API

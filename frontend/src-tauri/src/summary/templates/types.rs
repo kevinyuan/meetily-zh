@@ -72,10 +72,21 @@ impl Template {
 
     /// Generates a clean markdown template structure
     pub fn to_markdown_structure(&self) -> String {
+        self.to_markdown_structure_in("English")
+    }
+
+    /// As `to_markdown_structure`, with section headings written in `target_language`.
+    ///
+    /// The model copies these headings verbatim into the report, so translating them
+    /// here is what stops a Chinese summary from carrying English headings.
+    pub fn to_markdown_structure_in(&self, target_language: &str) -> String {
         let mut markdown = String::from("# <Add Title here>\n\n");
 
         for section in &self.sections {
-            markdown.push_str(&format!("**{}**\n\n", section.title));
+            markdown.push_str(&format!(
+                "**{}**\n\n",
+                super::localize::localize_section_title(&section.title, target_language)
+            ));
         }
 
         markdown
@@ -83,6 +94,12 @@ impl Template {
 
     /// Generates section-specific instructions for the LLM
     pub fn to_section_instructions(&self) -> String {
+        self.to_section_instructions_in("English")
+    }
+
+    /// As `to_section_instructions`, naming each section by its `target_language`
+    /// heading so the instructions and the template refer to the same thing.
+    pub fn to_section_instructions_in(&self, target_language: &str) -> String {
         let mut instructions = String::from(
             "- **For the main title (`# [AI-Generated Title]`):** Analyze the entire transcript and create a concise, descriptive title for the meeting.\n"
         );
@@ -90,7 +107,8 @@ impl Template {
         for section in &self.sections {
             instructions.push_str(&format!(
                 "- **For the '{}' section:** {}.\n",
-                section.title, section.instruction
+                super::localize::localize_section_title(&section.title, target_language),
+                section.instruction
             ));
 
             // Add item format instructions if present
