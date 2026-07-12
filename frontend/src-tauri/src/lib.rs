@@ -461,12 +461,16 @@ pub fn run() {
             });
 
             // Set models directory to use app_data_dir (unified storage location)
-            // Open devtools in debug builds. A frontend exception blanks the window
-            // with no trace anywhere in the Rust log, which makes such bugs needlessly
-            // hard to see; the console is where they actually surface.
+            // Devtools on request only: `MEETILY_DEVTOOLS=1 pnpm tauri:dev`.
+            //
+            // A frontend exception blanks the window without leaving a trace in the Rust
+            // log, so the console is the only place such bugs surface — but opening it on
+            // every launch is a nuisance, so it is opt-in rather than automatic.
             #[cfg(debug_assertions)]
-            if let Some(window) = _app.get_webview_window("main") {
-                window.open_devtools();
+            if std::env::var("MEETILY_DEVTOOLS").is_ok_and(|v| v != "0") {
+                if let Some(window) = _app.get_webview_window("main") {
+                    window.open_devtools();
+                }
             }
 
             whisper_engine::commands::set_models_directory(&_app.handle());

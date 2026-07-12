@@ -82,6 +82,12 @@
         "devicePreferencesSaved": "设备偏好已保存",
         "devicePreferencesDescription": "麦克风：{{microphone}}，系统音频：{{systemAudio}}",
         "devicePreferencesFailed": "设备偏好保存失败"
+      },
+      "segmentation": {
+        "title": "断句停顿时长",
+        "description": "停顿多久才开始新的一行转录。数值越小越接近逐句切分；越大则把说话中的停顿留在同一行内。原先固定的 400 毫秒比流利讲话时的句间停顿还长，导致好几句被合并成一行。",
+        "shorter": "100 毫秒 —— 切得更细",
+        "longer": "400 毫秒 —— 合并更多"
       }
     },
     "summary": {

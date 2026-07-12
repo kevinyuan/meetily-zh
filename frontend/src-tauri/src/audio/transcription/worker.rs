@@ -17,10 +17,32 @@ static SEQUENCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 // Speech detection flag - reset per recording session
 static SPEECH_DETECTED_EMITTED: AtomicBool = AtomicBool::new(false);
 
+/// The whole chunk as a single line — what engines without sentence alignment produce.
+fn whole_chunk(text: String, duration: f64) -> Vec<TranscriptSentence> {
+    if text.trim().is_empty() {
+        return Vec::new();
+    }
+    vec![TranscriptSentence { text, start: 0.0, end: duration }]
+}
+
 /// Reset the speech detected flag for a new recording session
 pub fn reset_speech_detected_flag() {
     SPEECH_DETECTED_EMITTED.store(false, Ordering::SeqCst);
     info!("🔍 SPEECH_DETECTED_EMITTED reset to: {}", SPEECH_DETECTED_EMITTED.load(Ordering::SeqCst));
+}
+
+/// One transcript line, with the span of audio it covers.
+///
+/// Engines that can split an utterance into sentences (SenseVoice, via its predicted
+/// punctuation and CTC token alignment) return several of these per audio chunk.
+/// Engines that cannot (Whisper, Parakeet) return exactly one spanning the whole
+/// chunk — i.e. the previous behaviour, where a VAD segment *was* the transcript line.
+#[derive(Debug, Clone)]
+pub struct TranscriptSentence {
+    pub text: String,
+    /// Seconds from the start of the audio chunk.
+    pub start: f64,
+    pub end: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -160,7 +182,7 @@ pub fn start_transcription_task<R: Runtime>(
                             )
                             .await
                             {
-                                Ok((transcript, confidence_opt, is_partial, detected_language)) => {
+                                Ok((sentences, confidence_opt, is_partial, detected_language)) => {
                                     // Provider-aware confidence threshold
                                     let confidence_threshold = match &engine_clone {
                                         TranscriptionEngine::Whisper(_) | TranscriptionEngine::Provider(_) => 0.3,
@@ -175,16 +197,16 @@ pub fn start_transcription_task<R: Runtime>(
                                         None => "N/A".to_string(),
                                     };
 
-                                    info!("🔍 Worker {} transcription result: text='{}', confidence={}, partial={}, threshold={:.2}",
-                                          worker_id, transcript, confidence_str, is_partial, confidence_threshold);
+                                    info!("🔍 Worker {} transcription result: {} sentence(s), confidence={}, partial={}, threshold={:.2}",
+                                          worker_id, sentences.len(), confidence_str, is_partial, confidence_threshold);
 
                                     // Check confidence threshold (or accept if no confidence provided)
                                     let meets_threshold = confidence_opt.map_or(true, |c| c >= confidence_threshold);
 
-                                    if !transcript.trim().is_empty() && meets_threshold {
+                                    if !sentences.is_empty() && meets_threshold {
                                         // PERFORMANCE: Only log transcription results, not every processing step
-                                        info!("✅ Worker {} transcribed: {} (confidence: {}, partial: {})",
-                                              worker_id, transcript, confidence_str, is_partial);
+                                        info!("✅ Worker {} transcribed {} sentence(s) (confidence: {}, partial: {})",
+                                              worker_id, sentences.len(), confidence_str, is_partial);
 
                                         // Emit speech-detected event for frontend UX (only on first detection per session)
                                         // This is lightweight and provides better user feedback
@@ -203,44 +225,42 @@ pub fn start_transcription_task<R: Runtime>(
                                             info!("🔍 Speech already detected in this session, not re-emitting");
                                         }
 
-                                        // Generate sequence ID and calculate timestamps FIRST
-                                        let sequence_id = SEQUENCE_COUNTER.fetch_add(1, Ordering::SeqCst);
-                                        let audio_start_time = chunk_timestamp; // Already in seconds from recording start
-                                        let audio_end_time = chunk_timestamp + chunk_duration;
+                                        // One transcript line per sentence. Engines that cannot
+                                        // split an utterance return a single sentence spanning the
+                                        // whole chunk, which reproduces the old behaviour exactly.
+                                        for sentence in sentences {
+                                            let sequence_id = SEQUENCE_COUNTER.fetch_add(1, Ordering::SeqCst);
 
-                                        // Save structured transcript segment to recording manager (only final results)
-                                        // Save ALL segments (partial and final) to ensure complete JSON
-                                        // Create structured segment with full timestamp data
-                                        // NOTE: This is now handled via the transcript-update event emission below
-                                        // The recording_commands module listens to these events and saves them
-                                        // This decouples the transcription worker from direct RECORDING_MANAGER access
+                                            // Sentence times are relative to the chunk; the chunk's
+                                            // own timestamp puts them on the recording's timeline.
+                                            let audio_start_time = chunk_timestamp + sentence.start;
+                                            let audio_end_time = chunk_timestamp + sentence.end;
+                                            let duration = (sentence.end - sentence.start).max(0.0);
 
-                                        // Emit transcript update with NEW recording-relative timestamps
+                                            let update = TranscriptUpdate {
+                                                text: sentence.text,
+                                                timestamp: format_current_timestamp(), // Wall-clock for reference
+                                                source: "Audio".to_string(),
+                                                language: detected_language.clone(),
+                                                sequence_id,
+                                                chunk_start_time: chunk_timestamp, // Legacy compatibility
+                                                is_partial,
+                                                confidence: confidence_opt.unwrap_or(0.85), // Default for providers without confidence
+                                                audio_start_time,
+                                                audio_end_time,
+                                                duration,
+                                            };
 
-                                        let update = TranscriptUpdate {
-                                            text: transcript,
-                                            timestamp: format_current_timestamp(), // Wall-clock for reference
-                                            source: "Audio".to_string(),
-                                            language: detected_language.clone(),
-                                            sequence_id,
-                                            chunk_start_time: chunk_timestamp, // Legacy compatibility
-                                            is_partial,
-                                            confidence: confidence_opt.unwrap_or(0.85), // Default for providers without confidence
-                                            // NEW: Recording-relative timestamps for sync
-                                            audio_start_time,
-                                            audio_end_time,
-                                            duration: chunk_duration,
-                                        };
-
-                                        if let Err(e) = app_clone.emit("transcript-update", &update)
-                                        {
-                                            error!(
-                                                "Worker {}: Failed to emit transcript update: {}",
-                                                worker_id, e
-                                            );
+                                            if let Err(e) = app_clone.emit("transcript-update", &update)
+                                            {
+                                                error!(
+                                                    "Worker {}: Failed to emit transcript update: {}",
+                                                    worker_id, e
+                                                );
+                                            }
                                         }
                                         // PERFORMANCE: Removed verbose logging of every emission
-                                    } else if !transcript.trim().is_empty() && should_log_this_chunk
+                                    } else if !sentences.is_empty() && should_log_this_chunk
                                     {
                                         // PERFORMANCE: Only log low-confidence results occasionally
                                         if let Some(c) = confidence_opt {
@@ -422,7 +442,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
     engine: &TranscriptionEngine,
     chunk: AudioChunk,
     app: &AppHandle<R>,
-) -> std::result::Result<(String, Option<f32>, bool, Option<String>), TranscriptionError> {
+) -> std::result::Result<(Vec<TranscriptSentence>, Option<f32>, bool, Option<String>), TranscriptionError> {
     // Convert to 16kHz mono for transcription
     let transcription_data = if chunk.sample_rate != 16000 {
         crate::audio::audio_processing::resample_audio(&chunk.data, chunk.sample_rate, 16000)
@@ -444,6 +464,8 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
             minimum: 1600, // 100ms at 16kHz
         });
     }
+
+    let chunk_duration_s = speech_samples.len() as f64 / 16_000.0;
 
     // Calculate energy for logging/monitoring only
     let energy: f32 =
@@ -468,7 +490,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Ok((text, confidence, is_partial)) => {
                     let cleaned_text = text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), Some(confidence), is_partial, None));
+                        return Ok((Vec::new(), Some(confidence), is_partial, None));
                     }
 
                     info!(
@@ -476,8 +498,9 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                         chunk.chunk_id, cleaned_text, confidence, is_partial
                     );
 
-                    // Whisper reports no per-utterance language back to us.
-                    Ok((cleaned_text, Some(confidence), is_partial, None))
+                    // Whisper cannot split an utterance into sentences, so the VAD segment
+                    // remains the transcript line (the previous behaviour).
+                    Ok((whole_chunk(cleaned_text, chunk_duration_s), Some(confidence), is_partial, None))
                 }
                 Err(e) => {
                     error!(
@@ -508,21 +531,31 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 .transcribe_audio(speech_samples, language)
                 .await
             {
-                Ok((text, detected_language)) => {
-                    let cleaned_text = text.trim().to_string();
-                    if cleaned_text.is_empty() {
-                        return Ok((String::new(), None, false, None));
+                Ok((sentences, detected_language)) => {
+                    if sentences.is_empty() {
+                        return Ok((Vec::new(), None, false, None));
                     }
 
                     info!(
-                        "SenseVoice transcription complete for chunk {}: '{}' (detected: {:?})",
-                        chunk.chunk_id, cleaned_text, detected_language
+                        "SenseVoice transcribed chunk {} into {} sentence(s) (detected: {:?})",
+                        chunk.chunk_id,
+                        sentences.len(),
+                        detected_language
                     );
 
+                    // Sentence boundaries come from the model's punctuation, and their
+                    // times from its CTC alignment — not from how long the speaker paused.
+                    let sentences = sentences
+                        .into_iter()
+                        .map(|s| TranscriptSentence {
+                            text: s.text,
+                            start: s.start as f64,
+                            end: s.end as f64,
+                        })
+                        .collect();
+
                     // CTC decoding gives no confidence score and no partial results.
-                    // The detected language IS per-sentence: each VAD chunk is a
-                    // separate utterance with its own language ID.
-                    Ok((cleaned_text, None, false, detected_language))
+                    Ok((sentences, None, false, detected_language))
                 }
                 Err(e) => {
                     error!(
@@ -549,7 +582,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Ok(text) => {
                     let cleaned_text = text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), None, false, None));
+                        return Ok((Vec::new(), None, false, None));
                     }
 
                     info!(
@@ -558,8 +591,8 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                     );
 
                     // Parakeet doesn't provide confidence or partial results
-                    // Parakeet does not report a language.
-                    Ok((cleaned_text, None, false, None))
+                    // Parakeet reports no language and no sentence alignment.
+                    Ok((whole_chunk(cleaned_text, chunk_duration_s), None, false, None))
                 }
                 Err(e) => {
                     error!(
@@ -589,7 +622,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                 Ok(result) => {
                     let cleaned_text = result.text.trim().to_string();
                     if cleaned_text.is_empty() {
-                        return Ok((String::new(), result.confidence, result.is_partial, None));
+                        return Ok((Vec::new(), result.confidence, result.is_partial, None));
                     }
 
                     let confidence_str = match result.confidence {
@@ -606,7 +639,7 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                         result.is_partial
                     );
 
-                    Ok((cleaned_text, result.confidence, result.is_partial, None))
+                    Ok((whole_chunk(cleaned_text, chunk_duration_s), result.confidence, result.is_partial, None))
                 }
                 Err(e) => {
                     error!(

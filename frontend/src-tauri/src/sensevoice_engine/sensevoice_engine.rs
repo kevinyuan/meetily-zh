@@ -17,6 +17,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use super::vendor::onnx::sense_voice::{SenseVoiceModel, SenseVoiceParams};
+use super::vendor::TranscriptionResult;
 use super::vendor::onnx::Quantization;
 
 /// Model status, mirroring the Whisper/Parakeet engines so the frontend can treat
@@ -99,6 +100,101 @@ const SENSEVOICE_MODELS: &[SenseVoiceModelDef] = &[SenseVoiceModelDef {
 
 /// Languages SenseVoice supports, as ISO-639-1 codes (`yue` = Cantonese).
 pub const SENSEVOICE_LANGUAGES: &[&str] = &["zh", "en", "ja", "ko", "yue"];
+
+/// One sentence, with the time it actually occupies in the audio.
+#[derive(Debug, Clone)]
+pub struct Sentence {
+    pub text: String,
+    /// Seconds from the start of this audio chunk.
+    pub start: f32,
+    pub end: f32,
+}
+
+/// Characters that end a sentence, in the scripts SenseVoice writes.
+const SENTENCE_ENDINGS: [char; 8] = ['。', '！', '？', '.', '!', '?', '；', ';'];
+
+/// Split a transcription into sentences using the model's own output.
+///
+/// The boundaries come from the punctuation SenseVoice predicts (ITN is on), and the
+/// times come from its CTC token alignment — not from how long the speaker paused.
+/// VAD still decides which audio goes into one inference call, but it no longer
+/// decides where a transcript line ends: in fluent speech, pauses between sentences
+/// are routinely shorter than the VAD's silence threshold, so whole paragraphs were
+/// landing on a single line with a single timestamp.
+///
+/// Falls back to one sentence spanning the whole chunk when the model reports no
+/// token timestamps, so a caller always gets something usable.
+fn split_into_sentences(result: &TranscriptionResult, fallback_duration: f32) -> Vec<Sentence> {
+    let text = result.text.trim();
+    if text.is_empty() {
+        return Vec::new();
+    }
+
+    let Some(tokens) = result.segments.as_ref().filter(|s| !s.is_empty()) else {
+        // No alignment available: behave exactly as before (one line per VAD segment).
+        return vec![Sentence {
+            text: text.to_string(),
+            start: 0.0,
+            end: fallback_duration,
+        }];
+    };
+
+    let mut sentences = Vec::new();
+    let mut buffer = String::new();
+    let mut sentence_start: Option<f32> = None;
+    let mut sentence_end = 0.0f32;
+
+    for token in tokens {
+        let piece = token.text.replace('\u{2581}', " ");
+        if piece.trim().is_empty() && buffer.is_empty() {
+            continue;
+        }
+
+        if sentence_start.is_none() {
+            sentence_start = Some(token.start);
+        }
+        sentence_end = token.end;
+        buffer.push_str(&piece);
+
+        let ends_sentence = piece
+            .chars()
+            .last()
+            .is_some_and(|c| SENTENCE_ENDINGS.contains(&c));
+
+        if ends_sentence {
+            let trimmed = buffer.trim();
+            if !trimmed.is_empty() {
+                sentences.push(Sentence {
+                    text: trimmed.to_string(),
+                    start: sentence_start.unwrap_or(0.0),
+                    end: sentence_end,
+                });
+            }
+            buffer.clear();
+            sentence_start = None;
+        }
+    }
+
+    // Trailing text with no closing punctuation is still a sentence.
+    let trailing = buffer.trim();
+    if !trailing.is_empty() {
+        sentences.push(Sentence {
+            text: trailing.to_string(),
+            start: sentence_start.unwrap_or(0.0),
+            end: sentence_end.max(fallback_duration),
+        });
+    }
+
+    if sentences.is_empty() {
+        vec![Sentence {
+            text: text.to_string(),
+            start: 0.0,
+            end: fallback_duration,
+        }]
+    } else {
+        sentences
+    }
+}
 
 /// The two files that must exist for a model directory to be usable.
 const MODEL_FILE: &str = "model.int8.onnx";
@@ -268,7 +364,8 @@ impl SenseVoiceEngine {
 
     /// Transcribe 16 kHz mono f32 samples in [-1, 1].
     ///
-    /// Returns the text plus the language SenseVoice *detected* for this utterance.
+    /// Returns the utterance split into sentences (see `split_into_sentences`), plus
+    /// the language SenseVoice *detected* for it.
     ///
     /// `language` is a hint; `None` (or an unsupported code) lets SenseVoice run its
     /// own language identification. Because the pipeline hands us one VAD-segmented
@@ -279,7 +376,7 @@ impl SenseVoiceEngine {
         &self,
         audio_data: Vec<f32>,
         language: Option<String>,
-    ) -> Result<(String, Option<String>)> {
+    ) -> Result<(Vec<Sentence>, Option<String>)> {
         let mut guard = self.current_model.write().await;
         let model = guard
             .as_mut()
@@ -301,6 +398,8 @@ impl SenseVoiceEngine {
             use_itn: Some(true),
         };
 
+        let chunk_duration = audio_data.len() as f32 / 16_000.0;
+
         let result = model
             .transcribe_with(&audio_data, &params)
             .map_err(|e| anyhow!("SenseVoice transcription failed: {}", e))?;
@@ -309,7 +408,14 @@ impl SenseVoiceEngine {
             log::debug!("SenseVoice detected language for this utterance: {}", detected);
         }
 
-        Ok((result.text, result.language))
+        let sentences = split_into_sentences(&result, chunk_duration);
+        log::debug!(
+            "SenseVoice produced {} sentence(s) from a {:.1}s segment",
+            sentences.len(),
+            chunk_duration
+        );
+
+        Ok((sentences, result.language))
     }
 
     pub async fn get_models_directory(&self) -> PathBuf {
@@ -549,6 +655,107 @@ pub fn normalize_language(language: &str) -> Option<String> {
     }
 
     None
+}
+
+#[cfg(test)]
+mod sentence_tests {
+    use super::*;
+    use crate::sensevoice_engine::vendor::TranscriptionSegment;
+
+    fn tok(text: &str, start: f32, end: f32) -> TranscriptionSegment {
+        TranscriptionSegment { start, end, text: text.to_string() }
+    }
+
+    fn result(text: &str, tokens: Vec<TranscriptionSegment>) -> TranscriptionResult {
+        TranscriptionResult {
+            text: text.to_string(),
+            segments: Some(tokens),
+            language: Some("zh".to_string()),
+        }
+    }
+
+    /// The point of the whole exercise: one VAD segment holding several sentences must
+    /// become several transcript lines, each with its own real timestamps.
+    #[test]
+    fn splits_on_punctuation_with_aligned_times() {
+        let r = result(
+            "今天开会。明天休息。",
+            vec![
+                tok("今天", 0.0, 0.3),
+                tok("开会", 0.3, 0.6),
+                tok("。", 0.6, 0.66),
+                tok("明天", 0.9, 1.2),
+                tok("休息", 1.2, 1.5),
+                tok("。", 1.5, 1.56),
+            ],
+        );
+
+        let s = split_into_sentences(&r, 2.0);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s[0].text, "今天开会。");
+        assert_eq!(s[1].text, "明天休息。");
+        // Times come from the token alignment, not from the chunk boundaries.
+        assert!((s[0].start - 0.0).abs() < 1e-6);
+        assert!((s[0].end - 0.66).abs() < 1e-6);
+        assert!((s[1].start - 0.9).abs() < 1e-6);
+        assert!((s[1].end - 1.56).abs() < 1e-6);
+    }
+
+    #[test]
+    fn handles_english_punctuation() {
+        let r = result(
+            "Hello there. How are you?",
+            vec![
+                tok("Hello", 0.0, 0.3),
+                tok(" there", 0.3, 0.6),
+                tok(".", 0.6, 0.66),
+                tok(" How", 0.8, 1.0),
+                tok(" are", 1.0, 1.2),
+                tok(" you", 1.2, 1.4),
+                tok("?", 1.4, 1.46),
+            ],
+        );
+        let s = split_into_sentences(&r, 2.0);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s[0].text, "Hello there.");
+        assert_eq!(s[1].text, "How are you?");
+    }
+
+    /// Trailing speech with no closing punctuation must not be dropped.
+    #[test]
+    fn keeps_a_trailing_fragment() {
+        let r = result(
+            "好的。然后",
+            vec![
+                tok("好的", 0.0, 0.3),
+                tok("。", 0.3, 0.36),
+                tok("然后", 0.5, 0.8),
+            ],
+        );
+        let s = split_into_sentences(&r, 1.0);
+        assert_eq!(s.len(), 2);
+        assert_eq!(s[1].text, "然后");
+    }
+
+    /// Without alignment we must degrade to the old behaviour, not lose the text.
+    #[test]
+    fn falls_back_to_one_line_without_token_times() {
+        let r = TranscriptionResult {
+            text: "没有时间戳的一段话".to_string(),
+            segments: None,
+            language: None,
+        };
+        let s = split_into_sentences(&r, 3.5);
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].text, "没有时间戳的一段话");
+        assert!((s[0].end - 3.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn empty_transcription_yields_no_sentences() {
+        let r = TranscriptionResult { text: "   ".to_string(), segments: None, language: None };
+        assert!(split_into_sentences(&r, 1.0).is_empty());
+    }
 }
 
 #[cfg(test)]

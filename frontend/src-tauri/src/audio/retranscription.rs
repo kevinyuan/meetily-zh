@@ -387,12 +387,19 @@ async fn run_retranscription<R: Runtime>(
             }
             Engine::SenseVoice => {
                 let engine = sensevoice_engine.as_ref().unwrap();
-                let (text, _detected_language) = engine
+                // Batch re-transcription keeps one text per audio segment; the sentence
+                // split matters for the live timeline, not for a bulk re-run.
+                let (sentences, _detected_language) = engine
                     .transcribe_audio(segment.samples.clone(), language.clone())
                     .await
                     .map_err(|e| {
                         anyhow!("SenseVoice transcription failed on segment {}: {}", i, e)
                     })?;
+                let text = sentences
+                    .into_iter()
+                    .map(|s| s.text)
+                    .collect::<Vec<_>>()
+                    .join(" ");
                 (text, 0.9f32)
             }
             Engine::Whisper => {
