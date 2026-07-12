@@ -22,6 +22,10 @@ pub struct TranscriptSegment {
     pub display_time: String,   // Formatted time for display like "[02:15]"
     pub confidence: f32,
     pub sequence_id: u64,
+    /// Language detected for this line ("zh", "en", ...). None for engines that do not
+    /// report one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
 }
 
 /// Meeting metadata structure
@@ -123,6 +127,7 @@ impl RecordingSaver {
         let segment = TranscriptSegment {
             id: format!("seg_{}", chrono::Utc::now().timestamp_millis()),
             text,
+            language: None,
             audio_start_time: 0.0,
             audio_end_time: 0.0,
             duration: 0.0,

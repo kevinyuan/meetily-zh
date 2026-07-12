@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useRef, useReducer, startTransition, useEffect, useState, memo } from "react";
+import { useCallback, useRef, useReducer, startTransition, useEffect, useState, memo, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { LANGUAGE_BADGES } from "@/lib/model-languages";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
@@ -72,6 +73,8 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
+    language,
+    showLanguageTag,
 }: {
     id: string;
     timestamp: number;
@@ -79,6 +82,10 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
+    /** Language SenseVoice detected for this line. */
+    language?: string;
+    /** Only true when the meeting actually mixes languages. */
+    showLanguageTag: boolean;
 }) {
     const { t } = useTranslation();
     const displayText = cleanStopWords(text) || (text.trim() === '' ? t('meetingArea.transcript.silence') : text);
@@ -86,6 +93,14 @@ const TranscriptSegment = memo(function TranscriptSegment({
     return (
         <div id={`segment-${id}`} className="mb-3">
             <div className="flex items-start gap-2">
+                {/* Per-sentence language, from SenseVoice's own detection. Shown only in
+                    mixed-language meetings — a tag on every line of a single-language
+                    meeting is noise, not information. */}
+                {showLanguageTag && language && (
+                    <span className="mt-1 flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                        {LANGUAGE_BADGES[language] ?? language.toUpperCase()}
+                    </span>
+                )}
                 <Tooltip>
                     <TooltipTrigger>
                         <span className="text-xs text-gray-400 mt-1 flex-shrink-0 min-w-[50px]">
@@ -148,6 +163,18 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
             });
         },
     });
+
+    // Only tag lines when the meeting actually mixes languages. Tagging every line of a
+    // single-language meeting is noise; the point of per-sentence detection is to make
+    // code-switching legible.
+    const showLanguageTags = useMemo(() => {
+        const seen = new Set<string>();
+        for (const segment of segments) {
+            if (segment.language) seen.add(segment.language);
+            if (seen.size > 1) return true;
+        }
+        return false;
+    }, [segments]);
 
     // Custom hook for auto-scrolling (supports both virtualized and non-virtualized)
     useAutoScroll({
@@ -303,6 +330,8 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        language={segment.language}
+                                        showLanguageTag={showLanguageTags}
                                     />
                                 </div>
                             );
@@ -359,6 +388,8 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        language={segment.language}
+                                        showLanguageTag={showLanguageTags}
                                     />
                                 </motion.div>
                             );

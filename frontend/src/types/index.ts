@@ -115,4 +115,11 @@ export interface TranscriptSegmentData {
   endTime?: number; // audio_end_time in seconds
   text: string;
   confidence?: number;
+  /**
+   * Language detected for THIS line ("zh", "en", "ja", "ko", "yue").
+   *
+   * Per-sentence: SenseVoice identifies each utterance independently. Absent for
+   * engines that do not report it (Whisper, Parakeet).
+   */
+  language?: string;
 }
