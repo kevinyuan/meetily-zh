@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { DeviceSelection, SelectedDevices } from '@/components/DeviceSelection';
 import Analytics from '@/lib/analytics';
 import { toast } from 'sonner';
+import { useConfig } from '@/contexts/ConfigContext';
 
 export interface RecordingPreferences {
   save_folder: string;
@@ -21,7 +22,14 @@ export interface RecordingPreferences {
    * merged onto one line.
    */
   vad_redemption_ms: number;
+  /**
+   * 'punctuation' — the model's own punctuation decides where a line ends (SenseVoice only).
+   * 'pause'       — a line is one VAD segment, i.e. speech between two silences.
+   */
+  segmentation_mode: SegmentationMode;
 }
+
+export type SegmentationMode = 'punctuation' | 'pause';
 
 export const VAD_REDEMPTION_MIN_MS = 100;
 export const VAD_REDEMPTION_MAX_MS = 400;
@@ -33,13 +41,18 @@ interface RecordingSettingsProps {
 
 export function RecordingSettings({ onSave }: RecordingSettingsProps) {
   const { t } = useTranslation();
+  const { transcriptModelConfig } = useConfig();
+
+  // Only SenseVoice returns the punctuation and token alignment this mode needs.
+  const supportsPunctuation = transcriptModelConfig.provider === 'senseVoice';
   const [preferences, setPreferences] = useState<RecordingPreferences>({
     save_folder: '',
     auto_save: true,
     file_format: 'mp4',
     preferred_mic_device: null,
     preferred_system_device: null,
-    vad_redemption_ms: VAD_REDEMPTION_DEFAULT_MS
+    vad_redemption_ms: VAD_REDEMPTION_DEFAULT_MS,
+    segmentation_mode: 'punctuation'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,11 +107,22 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     });
   };
 
-  const handleVadRedemptionChange = async (ms: number) => {
+  // Dragging updates local state only — the value must track the thumb without a
+  // round-trip to the backend on every tick.
+  const handleVadRedemptionInput = (ms: number) => {
     const clamped = Math.min(VAD_REDEMPTION_MAX_MS, Math.max(VAD_REDEMPTION_MIN_MS, ms));
-    const newPreferences = { ...preferences, vad_redemption_ms: clamped };
+    setPreferences((prev) => ({ ...prev, vad_redemption_ms: clamped }));
+  };
+
+  // Persist once, when the drag ends. Silently: a slider does not warrant a toast.
+  const handleVadRedemptionCommit = async () => {
+    await savePreferences(preferences, { silent: true });
+  };
+
+  const handleSegmentationModeChange = async (mode: SegmentationMode) => {
+    const newPreferences = { ...preferences, segmentation_mode: mode };
     setPreferences(newPreferences);
-    await savePreferences(newPreferences);
+    await savePreferences(newPreferences, { silent: true });
   };
 
   const handleDeviceChange = async (devices: SelectedDevices) => {
@@ -143,11 +167,16 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     }
   };
 
-  const savePreferences = async (prefs: RecordingPreferences) => {
-    setSaving(true);
+  const savePreferences = async (prefs: RecordingPreferences, options?: { silent?: boolean }) => {
+    // `silent` saves do not flip `saving`. Disabling a control mid-drag makes the
+    // browser abort the drag and drop focus, which scrolled the settings page back to
+    // the top the moment you touched the slider.
+    if (!options?.silent) setSaving(true);
     try {
       await invoke('set_recording_preferences', { preferences: prefs });
       onSave?.(prefs);
+
+      if (options?.silent) return;
 
       // Show success toast with device details
       const micDevice = prefs.preferred_mic_device || t('settingsArea.common.defaultDevice');
@@ -164,7 +193,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
         description: error instanceof Error ? error.message : String(error)
       });
     } finally {
-      setSaving(false);
+      if (!options?.silent) setSaving(false);
     }
   };
 
@@ -274,7 +303,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
         </div>
       </div>
 
-      {/* Sentence segmentation */}
+      {/* How the transcript is broken into lines */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           {t('settingsArea.recording.segmentation.title')}
@@ -283,25 +312,86 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
           {t('settingsArea.recording.segmentation.description')}
         </p>
 
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min={VAD_REDEMPTION_MIN_MS}
-            max={VAD_REDEMPTION_MAX_MS}
-            step={10}
-            value={preferences.vad_redemption_ms}
-            disabled={saving}
-            onChange={(e) => handleVadRedemptionChange(Number(e.target.value))}
-            className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-blue-600 disabled:cursor-not-allowed"
-          />
-          <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">
-            {preferences.vad_redemption_ms} ms
-          </span>
-        </div>
+        <div className="space-y-3">
+          {/* Mode 2 — the model's punctuation. Only SenseVoice can do this. */}
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${
+              preferences.segmentation_mode === 'punctuation'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            } ${!supportsPunctuation ? 'cursor-not-allowed opacity-50' : ''}`}
+          >
+            <input
+              type="radio"
+              name="segmentation_mode"
+              className="mt-1"
+              checked={preferences.segmentation_mode === 'punctuation'}
+              disabled={!supportsPunctuation}
+              onChange={() => handleSegmentationModeChange('punctuation')}
+            />
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {t('settingsArea.recording.segmentation.punctuation.label')}
+              </div>
+              <div className="mt-0.5 text-xs text-gray-500">
+                {supportsPunctuation
+                  ? t('settingsArea.recording.segmentation.punctuation.help')
+                  : t('settingsArea.recording.segmentation.punctuation.unavailable')}
+              </div>
+            </div>
+          </label>
 
-        <div className="mt-2 flex justify-between text-xs text-gray-400">
-          <span>{t('settingsArea.recording.segmentation.shorter')}</span>
-          <span>{t('settingsArea.recording.segmentation.longer')}</span>
+          {/* Mode 1 — VAD pauses. Every engine can do this. */}
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${
+              preferences.segmentation_mode === 'pause'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <input
+              type="radio"
+              name="segmentation_mode"
+              className="mt-1"
+              checked={preferences.segmentation_mode === 'pause'}
+              onChange={() => handleSegmentationModeChange('pause')}
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">
+                {t('settingsArea.recording.segmentation.pause.label')}
+              </div>
+              <div className="mt-0.5 text-xs text-gray-500">
+                {t('settingsArea.recording.segmentation.pause.help')}
+              </div>
+
+              {/* The pause length only means anything in this mode. */}
+              {preferences.segmentation_mode === 'pause' && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min={VAD_REDEMPTION_MIN_MS}
+                      max={VAD_REDEMPTION_MAX_MS}
+                      step={10}
+                      value={preferences.vad_redemption_ms}
+                      onChange={(e) => handleVadRedemptionInput(Number(e.target.value))}
+                      onPointerUp={handleVadRedemptionCommit}
+                      onKeyUp={handleVadRedemptionCommit}
+                      onClick={(e) => e.preventDefault()}
+                      className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200 accent-blue-600"
+                    />
+                    <span className="w-20 shrink-0 text-right text-sm font-medium tabular-nums text-gray-900">
+                      {preferences.vad_redemption_ms} ms
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between text-xs text-gray-400">
+                    <span>{t('settingsArea.recording.segmentation.shorter')}</span>
+                    <span>{t('settingsArea.recording.segmentation.longer')}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </label>
         </div>
       </div>
     </div>

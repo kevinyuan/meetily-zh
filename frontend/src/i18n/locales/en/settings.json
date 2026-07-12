@@ -84,8 +84,17 @@
         "devicePreferencesFailed": "Failed to save device preferences"
       },
       "segmentation": {
-        "title": "Sentence segmentation",
-        "description": "How long a pause must last before the transcript starts a new line. Shorter values split closer to individual sentences; longer values keep a speaker's pauses inside one line. The old fixed value of 400 ms was longer than the pause between sentences in fluent speech, so several sentences ended up on one line.",
+        "title": "How the transcript is split into lines",
+        "description": "Choose what decides where one line ends and the next begins.",
+        "punctuation": {
+          "label": "By punctuation (recommended)",
+          "help": "The model's own punctuation decides where a line ends, and the times come from its acoustic alignment. Splits close to actual sentences, even when the speaker barely pauses.",
+          "unavailable": "Requires SenseVoice. Select it under Transcription Models to enable this."
+        },
+        "pause": {
+          "label": "By pause length",
+          "help": "A line is a stretch of speech between two silences. Works with every engine, but in fluent speech the pause between sentences is often shorter than the threshold, so several sentences land on one line."
+        },
         "shorter": "100 ms — splits more often",
         "longer": "400 ms — merges more"
       }

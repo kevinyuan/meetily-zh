@@ -1,271 +1,102 @@
-<div align="center" style="border-bottom: none">
-    <h1>
-        <img src="docs/Meetily-6.png" style="border-radius: 10px;" />
-        <br>
-        Privacy-First AI Meeting Assistant
-    </h1>
-    <a href="https://trendshift.io/repositories/21958" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21958" alt="Zackriya-Solutions%2Fmeetily | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-    <br>
-    <br>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases/"><img src="https://img.shields.io/badge/Pre_Release-Link-brightgreen" alt="Pre-Release"></a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/zackriya-solutions/meeting-minutes?style=flat">
-</a>
- <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"> <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/zackriya-solutions/meeting-minutes/total?style=plastic"> </a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License"></a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img src="https://img.shields.io/badge/Supported_OS-macOS,_Windows-white" alt="Supported OS"></a>
-    <a href="https://github.com/Zackriya-Solutions/meeting-minutes/releases"><img alt="GitHub Tag" src="https://img.shields.io/github/v/tag/zackriya-solutions/meeting-minutes?include_prereleases&color=yellow">
-</a>
-    <br>
-    <h3>
-    <br>
-    Open Source • Privacy-First • Enterprise-Ready
-    </h3>
-    <p align="center">
-    Get latest <a href="https://www.zackriya.com/meetily-subscribe/"><b>Product updates</b></a> <br><br>
-    <a href="https://meetily.ai"><b>Website</b></a> •
-    <a href="https://www.linkedin.com/company/106363062/"><b>LinkedIn</b></a> •
-    <a href="https://discord.gg/crRymMQBFH"><b>Meetily Discord</b></a> •
-    <a href="https://discord.com/invite/vCFJvN4BwJ"><b>Privacy-First AI</b></a> •
-    <a href="https://www.reddit.com/r/meetily/"><b>Reddit</b></a>
-</p>
-    <p align="center">
+# Meetily-ZH
 
-A privacy-first AI meeting assistant that captures, transcribes, and summarizes meetings entirely on your infrastructure. Built by expert AI engineers passionate about data sovereignty and open source solutions. Perfect for enterprises that need advanced meeting intelligence without compromising on privacy, compliance, or control.
+A Chinese-first fork of [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) — a privacy-first AI meeting assistant that records, transcribes and summarises meetings **entirely on your own machine**. No cloud, no audio leaving the device.
 
-</p>
-
-<p align="center">
-    <img src="docs/meetily_demo.gif" width="650" alt="Meetily Demo" />
-    <br>
-    <a href="https://youtu.be/6FnhSC_eSz8">View full Demo Video</a>
-</p>
-
-</div>
+Everything upstream does, this does too. What it adds is Chinese support that actually works.
 
 ---
 
-> **Meetily PRO Upgrade Offer** - Meetily PRO is available for users who need enhanced accuracy, advanced exports, custom summary workflows, and team-ready features. Use coupon code **LAUNCH20** for **20% off** until the next Meetily Community Edition release. Speaker diarization is also planned for PRO in mid-June. [Explore Meetily PRO →](https://meetily.ai/pro/)
+## Why this fork exists
+
+Upstream Meetily is a good piece of software, but its transcription and summarisation paths quietly assume English. Used on Chinese meetings, three things went wrong — and none of them was a small bug:
+
+1. **Chinese speech produced English transcripts.** The default language preference was `auto-translate`: detect the language, then *translate it into English*.
+2. **Chinese meetings produced English summaries.** Summaries were drafted in English by construction. On "auto", a Chinese meeting was summarised and then translated *into* English — the exact opposite of what the setting promised.
+3. **The English-only engine was the default.** Onboarding installed Parakeet, which cannot transcribe Chinese at all.
+
+So this fork fixes the defaults, adds a transcription engine built for Chinese, and translates the interface.
 
 ---
 
-<details>
-<summary>Table of Contents</summary>
+## What's added
 
-- [Introduction](#introduction)
-- [Why Meetily?](#why-meetily)
-- [Features](#features)
-- [Installation](#installation)
-- [Key Features in Action](#key-features-in-action)
-- [System Architecture](#system-architecture)
-- [For Developers](#for-developers)
-- [Meetily PRO](#meetily-pro)
-- [Contributing](#contributing)
-- [License](#license)
+### SenseVoice — a Chinese-first transcription engine
 
-</details>
+[SenseVoice](https://github.com/FunAudioLLM/SenseVoice) (Alibaba Tongyi / FunAudioLLM) joins Whisper and Parakeet as a third engine, and is the new default. It handles **Chinese, English, Japanese, Korean and Cantonese**, runs roughly **60× realtime on CPU**, and outputs punctuation.
 
-## Introduction
+The model is sherpa-onnx's official int8 export (~236 MB), downloaded from inside the app. It runs on the ONNX Runtime the app already ships for Parakeet, so nothing extra is bundled.
 
-Meetily is a privacy-first AI meeting assistant that runs entirely on your local machine. It captures your meetings, transcribes them in real-time, and generates summaries, all without sending any data to the cloud. This makes it the perfect solution for professionals and enterprises who need to maintain complete control over their sensitive information.
+### Sentence-level transcripts
 
-## Why Meetily?
+A transcript line used to be whatever fell between two silences longer than 400 ms. But in fluent speech the pause *between* sentences is usually shorter than that, so sentences merged — real recordings produced single lines up to **39 seconds** long.
 
-While there are many meeting transcription tools available, this solution stands out by offering:
+Lines can now be split on **the punctuation the model itself predicts**, with timestamps from its acoustic (CTC) alignment. Both modes are selectable in **Settings → Recording**, and engines that cannot do this fall back to the old behaviour without losing any text.
 
-- **Privacy First:** All processing happens locally on your device.
-- **Cost-Effective:** Uses open-source AI models instead of expensive APIs.
-- **Flexible:** Works offline and supports multiple meeting platforms.
-- **Customizable:** Self-host and modify for your specific needs.
+### Per-sentence language detection
 
-<details>
-<summary>The Privacy Problem</summary>
+SenseVoice identifies the language of each utterance, so a meeting that switches between Chinese and English is labelled line by line.
 
-Meeting AI tools create significant privacy and compliance risks across all sectors:
+### Chinese interface
 
-- **$4.4M average cost per data breach** (IBM 2024)
-- **€5.88 billion in GDPR fines** issued by 2025
-- **400+ unlawful recording cases** filed in California this year
+The whole UI is translated (~890 strings). The display language is autodetected from your OS locale and can be changed in **Settings → General**. Transcription language, summary language and the model filter all follow it by default.
 
-Whether you're a defense consultant, enterprise executive, legal professional, or healthcare provider, your sensitive discussions shouldn't live on servers you don't control. Cloud meeting tools promise convenience but deliver privacy nightmares with unclear data storage practices and potential unauthorized access.
+### Chinese-first defaults
 
-**Meetily solves this:** Complete data sovereignty on your infrastructure, zero vendor lock-in, and full control over your sensitive conversations.
+Transcription no longer translates to English unless you ask it to. Summaries are written in the display language. The model list filters down to engines that can actually handle the language you chose — Parakeet is hidden under Chinese, because it genuinely cannot do it.
 
-</details>
+### Other fixes
 
-## Features
+- **Recovered dropped speech.** Utterances shorter than 250 ms were discarded, silently eating 「嗯」「好」「对」/ "yes" / "OK". The floor is now 120 ms.
+- **Fixed the audio mixer.** System audio was mixed at full level despite a comment claiming it was attenuated, and the clipping guard then dragged the microphone down with it — quiet speech went undetected while a meeting was playing.
+- **Indexed the transcript lookup.** Opening any meeting scanned the entire transcripts table.
+- **Markdown export.** Meetings live in SQLite; export gives you plain-text copies for a folder, Git or iCloud.
+- **The macOS menu-bar icon** is a proper monochrome template icon instead of the full-colour app icon.
 
-- **Local First:** All processing is done on your machine. No data ever leaves your computer.
-- **Real-time Transcription:** Get a live transcript of your meeting as it happens.
-- **AI-Powered Summaries:** Generate summaries of your meetings using powerful language models.
-- **Multi-Platform:** Works on macOS, Windows, and Linux.
-- **Open Source:** Meetily is open source and free to use.
-- **Flexible AI Provider Support:** Choose from Ollama (local), Claude, Groq, OpenRouter, or use your own OpenAI-compatible endpoint.
+---
 
-## Installation
+## Install — macOS
 
-### 🪟 **Windows**
-
-1. Download the latest `x64-setup.exe` from [Releases](https://github.com/Zackriya-Solutions/meeting-minutes/releases/latest)
-2. Run the installer
-
-### 🍎 **macOS**
-
-1. Download `meetily_0.4.0_aarch64.dmg` from [Releases](https://github.com/Zackriya-Solutions/meeting-minutes/releases/latest)
-2. Open the downloaded `.dmg` file
-3. Drag **Meetily** to your Applications folder
-4. Open **Meetily** from Applications folder
-
-### 🐧 **Linux**
-
-Build from source following our detailed guides:
-
-- [Building on Linux](docs/building_in_linux.md)
-- [General Build Instructions](docs/BUILDING.md)
-
-**Quick start:**
+Apple Silicon only. Build from source:
 
 ```bash
-git clone https://github.com/Zackriya-Solutions/meeting-minutes
-cd meeting-minutes/frontend
+git clone https://github.com/kevinyuan/meetily-zh.git
+cd meetily-zh/frontend
 pnpm install
-./build-gpu.sh
+pnpm run tauri:build      # or: pnpm run tauri:dev
 ```
 
-## Key Features in Action
+**Prerequisites**
 
-### 🎯 Local Transcription
+- **Xcode** — the full app, not just the Command Line Tools. The `cidre` dependency (macOS system-audio capture) needs `xcodebuild`.
+- **cmake** — `brew install cmake`, used to build whisper.cpp.
 
-Transcribe meetings entirely on your device using **Whisper** or **Parakeet** models. No cloud required.
+**First launch** downloads the SenseVoice model (~236 MB) and a summarisation model into `~/Library/Application Support/com.meetily.ai/models/`. They are reused across builds and releases, so you never download them twice.
 
-<p align="center">
-    <img src="docs/home.png" width="650" style="border-radius: 10px;" alt="Meetily Demo" />
-</p>
+macOS will ask for **microphone** and **screen recording** permission. Screen recording is what captures the *other* side of a call — without it you only record yourself.
 
-### 📥 Import & Enhance `Beta`
+---
 
-Import existing audio files to generate transcripts, or enhance to re-transcribe any recorded meeting with a different model or language, all processed locally.
+## Windows
 
-> Contributed by [Jeremi Joslin](https://github.com/jeremi), improved by [Vishnu P S](https://github.com/p-s-vishnu) and [Mohammed Safvan](https://github.com/mohammedsafvan)
+**The code supports Windows. This fork has not been tested on it.**
 
-<p align="center">
-    <img src="docs/meetily-export.gif" width="650" style="border-radius: 10px;" alt="Import and Enhance" />
-</p>
+Upstream builds and ships Windows installers, and nothing added here is macOS-specific: SenseVoice, the ONNX runtime, the segmentation logic and the interface are all cross-platform. The repository's own workflow (`.github/workflows/build-windows.yml`) builds MSI and NSIS installers on a GitHub-hosted Windows runner, and it succeeds without a code-signing certificate (it skips signing rather than failing).
 
-### 🤖 AI-Powered Summaries
+I don't have a Windows machine and don't have time to test there, so I'm making no claims about it. Two areas would need real verification first:
 
-Generate meeting summaries with your choice of AI provider. **Ollama** (local) is recommended, with support for Claude, Groq, OpenRouter, and OpenAI.
+- **Audio capture**, which uses WASAPI rather than CoreAudio. The mixing and voice-detection changes here were only validated on macOS, and buffer behaviour differs between the two.
+- **System-audio capture**, which is a separate implementation entirely.
 
-<p align="center">
-    <img src="docs/summary.png" width="650" style="border-radius: 10px;" alt="Summary generation" />
-</p>
+If you build and test it on Windows, please open an issue with what you find. Contributions welcome.
 
-<p align="center">
-    <img src="docs/editor1.png" width="650" style="border-radius: 10px;" alt="Editor Summary generation" />
-</p>
+**Linux** compiles but is not released upstream either — you would be building from source.
 
-### 🔒 Privacy-First Design
+---
 
-All data stays on your machine. Transcription models, recordings, and transcripts are stored locally.
+## Credits
 
-<p align="center">
-    <img src="docs/settings.png" width="650" style="border-radius: 10px;" alt="Local Transcription and storage" />
-</p>
+- [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) by Zackriya Solutions — everything this is built on.
+- [**SenseVoice**](https://github.com/FunAudioLLM/SenseVoice) by Alibaba's Tongyi Lab, exported to ONNX by [**sherpa-onnx**](https://github.com/k2-fsa/sherpa-onnx) (Next-gen Kaldi).
+- The SenseVoice inference code is a vendored subset of [**transcribe-rs**](https://crates.io/crates/transcribe-rs) (MIT), ported back to an older ONNX Runtime — see `frontend/src-tauri/src/sensevoice_engine/vendor/`.
 
-### 🌐 Custom OpenAI Endpoint Support
-
-Use your own OpenAI-compatible endpoint for AI summaries. Perfect for organizations with custom AI infrastructure or preferred providers.
-
-<p align="center">
-    <img src="docs/custom.png" width="650" style="border-radius: 10px;" alt="Custom OpenAI Endpoint Configuration" />
-</p>
-
-### 🎙️ Professional Audio Mixing
-
-Capture microphone and system audio simultaneously with intelligent ducking and clipping prevention.
-
-<p align="center">
-    <img src="docs/audio.png" width="650" style="border-radius: 10px;" alt="Device selection" />
-</p>
-
-### ⚡ GPU Acceleration
-
-Built-in support for hardware acceleration across platforms:
-
-- **macOS**: Apple Silicon (Metal) + CoreML
-- **Windows/Linux**: NVIDIA (CUDA), AMD/Intel (Vulkan)
-
-Automatically enabled at build time - no configuration needed.
-
-## System Architecture
-
-Meetily is a single, self-contained application built with [Tauri](https://tauri.app/). It uses a Rust-based backend to handle all the core logic, and a Next.js frontend for the user interface.
-
-For more details, see the [Architecture documentation](docs/architecture.md).
-
-## For Developers
-
-If you want to contribute to Meetily or build it from source, you'll need to have Rust and Node.js installed. For detailed build instructions, please see the [Building from Source guide](docs/BUILDING.md).
-
-## Meetily Pro
-
-<p align="center">
-    <img src="docs/pv2.1.png" width="650" style="border-radius: 10px;" alt="Upcoming version" />
-</p>
-
-**Meetily PRO** is a professional-grade solution with enhanced accuracy and advanced features for serious users and teams. Built on a different codebase with superior transcription models and enterprise-ready capabilities.
-
-### Community Thank-You Offer
-
-Meetily Community Edition will remain free and open source. PRO exists for users and teams who want a more advanced meeting workflow, including higher transcription accuracy, custom summary templates, advanced exports, auto-meeting detection, and self-hosted deployment options.
-
-For the community that helped Meetily grow, we are making the upgrade easier: use coupon code **LAUNCH20** for **20% off Meetily PRO** until the next Meetily Community Edition release.
-
-Speaker diarization is planned for mid-June, bringing automatic speaker separation to PRO meetings.
-
-### Key Advantages Over Community Edition:
-
-- **Enhanced Accuracy**: Superior transcription models for professional-grade accuracy
-- **Custom Summary Templates**: Tailor summaries to your specific workflow and needs
-- **Advanced Export Options**: PDF, DOCX, and Markdown exports with formatting
-- **Auto-detect and Join Meetings**: Automatic meeting detection and joining
-- **Speaker Identification**: Distinguish between speakers automatically *(Coming Soon)*
-- **Chat with Meetings**: AI-powered meeting insights and queries *(Coming Soon)*
-- **Calendar Integration**: Seamless integration with your calendar *(Coming Soon)*
-- **Self-Hosted Deployment**: Deploy on your own infrastructure for teams
-- **GDPR Compliance Built-In**: Privacy by design architecture with complete audit trails
-- **Priority Support**: Dedicated support for PRO users
-
-### Who is PRO for?
-
-- **Professionals** who need the highest accuracy for critical meetings
-- **Teams and organizations** (2-100 users) requiring self-hosted deployment
-- **Power users** who need advanced export formats and custom workflows
-- **Compliance-focused organizations** requiring GDPR readiness
-
-> **Note:** Meetily Community Edition remains **free & open source forever** with local transcription, AI summaries, and core features. PRO is a separate professional solution for users who need enhanced accuracy and advanced capabilities.
-
-For organizations needing 100+ users or managed compliance solutions, explore [Meetily Enterprise](https://meetily.ai/enterprise/).
-
-**Learn more about pricing and features:** [https://meetily.ai/pro/](https://meetily.ai/pro/)
-
-## Contributing
-
-We welcome contributions from the community! If you have any questions or suggestions, please open an issue or submit a pull request. Please follow the established project structure and guidelines. For more details, refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
-
-Thanks for all the contributions. Our community is what makes this project possible.
-
-## License
-
-MIT License - Feel free to use this project for your own purposes.
-
-## Acknowledgments
-
-- We borrowed some code from [Whisper.cpp](https://github.com/ggerganov/whisper.cpp).
-- We borrowed some code from [Screenpipe](https://github.com/mediar-ai/screenpipe).
-- We borrowed some code from [transcribe-rs](https://crates.io/crates/transcribe-rs).
-- Thanks to **NVIDIA** for developing the **Parakeet** model.
-- Thanks to [istupakov](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx) for providing the **ONNX conversion** of the Parakeet model.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/chart?repos=Zackriya-Solutions/meetily&type=date&legend=top-left)](https://www.star-history.com/?repos=Zackriya-Solutions%2Fmeetily&type=date&legend=bottom-right)
+MIT, like upstream.

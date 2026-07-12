@@ -17,6 +17,25 @@ static SEQUENCE_COUNTER: AtomicU64 = AtomicU64::new(0);
 // Speech detection flag - reset per recording session
 static SPEECH_DETECTED_EMITTED: AtomicBool = AtomicBool::new(false);
 
+/// Whether transcript lines are split on the model's punctuation.
+///
+/// When false, a line is one VAD segment (speech between two silences) — the behaviour
+/// of every engine other than SenseVoice, and what the app did before. The user chooses
+/// this in Settings > Recording.
+static SPLIT_ON_PUNCTUATION: AtomicBool = AtomicBool::new(true);
+
+pub fn set_split_on_punctuation(enabled: bool) {
+    SPLIT_ON_PUNCTUATION.store(enabled, Ordering::Relaxed);
+    info!(
+        "Transcript segmentation: {}",
+        if enabled { "model punctuation" } else { "VAD pauses" }
+    );
+}
+
+pub fn split_on_punctuation() -> bool {
+    SPLIT_ON_PUNCTUATION.load(Ordering::Relaxed)
+}
+
 /// The whole chunk as a single line — what engines without sentence alignment produce.
 fn whole_chunk(text: String, duration: f64) -> Vec<TranscriptSentence> {
     if text.trim().is_empty() {
@@ -545,14 +564,25 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
 
                     // Sentence boundaries come from the model's punctuation, and their
                     // times from its CTC alignment — not from how long the speaker paused.
-                    let sentences = sentences
-                        .into_iter()
-                        .map(|s| TranscriptSentence {
-                            text: s.text,
-                            start: s.start as f64,
-                            end: s.end as f64,
-                        })
-                        .collect();
+                    // In pause mode the user has asked for the old behaviour instead, so
+                    // the sentences are joined back into the single VAD-segment line.
+                    let sentences: Vec<TranscriptSentence> = if split_on_punctuation() {
+                        sentences
+                            .into_iter()
+                            .map(|s| TranscriptSentence {
+                                text: s.text,
+                                start: s.start as f64,
+                                end: s.end as f64,
+                            })
+                            .collect()
+                    } else {
+                        let joined = sentences
+                            .into_iter()
+                            .map(|s| s.text)
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        whole_chunk(joined, chunk_duration_s)
+                    };
 
                     // CTC decoding gives no confidence score and no partial results.
                     Ok((sentences, None, false, detected_language))

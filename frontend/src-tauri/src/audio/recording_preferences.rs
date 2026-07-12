@@ -34,6 +34,22 @@ pub struct RecordingPreferences {
     /// sentence boundaries; raise it if hesitations are fragmenting your sentences.
     #[serde(default = "default_vad_redemption_ms")]
     pub vad_redemption_ms: u32,
+
+    /// How a transcript is broken into lines.
+    ///
+    /// - `"punctuation"`: the model's own punctuation decides where a line ends, and
+    ///   the times come from its token alignment. Only SenseVoice can do this.
+    /// - `"pause"`: a line is one VAD segment, i.e. speech between two silences. This
+    ///   is what every other engine does, and what the app did before.
+    #[serde(default = "default_segmentation_mode")]
+    pub segmentation_mode: String,
+}
+
+pub const SEGMENTATION_PUNCTUATION: &str = "punctuation";
+pub const SEGMENTATION_PAUSE: &str = "pause";
+
+fn default_segmentation_mode() -> String {
+    SEGMENTATION_PUNCTUATION.to_string()
 }
 
 /// Clamped to a range where the value still means something: below ~100ms the VAD
@@ -61,6 +77,7 @@ impl Default for RecordingPreferences {
             #[cfg(target_os = "macos")]
             system_audio_backend: Some("coreaudio".to_string()),
             vad_redemption_ms: default_vad_redemption_ms(),
+            segmentation_mode: default_segmentation_mode(),
         }
     }
 }
@@ -157,8 +174,8 @@ pub async fn load_recording_preferences<R: Runtime>(
     info!("Loaded recording preferences: save_folder={:?}, auto_save={}, format={}, mic={:?}, system={:?}",
           prefs.save_folder, prefs.auto_save, prefs.file_format,
           prefs.preferred_mic_device, prefs.preferred_system_device);
-    // Seed the live VAD knob from whatever was persisted.
-    crate::audio::vad::set_vad_redemption_ms(prefs.vad_redemption_ms);
+    // Seed the live knobs from whatever was persisted.
+    apply_segmentation_settings(&prefs);
 
     Ok(prefs)
 }
@@ -221,9 +238,8 @@ pub async fn set_recording_preferences<R: Runtime>(
     app: AppHandle<R>,
     preferences: RecordingPreferences,
 ) -> Result<(), String> {
-    // Apply the pause length to the live VAD immediately, so the next recording picks
-    // it up without an app restart.
-    crate::audio::vad::set_vad_redemption_ms(preferences.vad_redemption_ms);
+    // Apply immediately, so the next recording picks the settings up without a restart.
+    apply_segmentation_settings(&preferences);
 
     save_recording_preferences(&app, &preferences)
         .await
@@ -418,3 +434,20 @@ pub async fn get_audio_backend_info() -> Result<Vec<BackendInfo>, String> {
     }
 }
 
+
+/// Push the segmentation settings into the live engine state.
+///
+/// In punctuation mode the pause length no longer decides where lines break, so the
+/// VAD is given the widest window instead: a longer segment gives the model more
+/// context, which is what its punctuation prediction depends on.
+pub fn apply_segmentation_settings(prefs: &RecordingPreferences) {
+    let split_on_punctuation = prefs.segmentation_mode == SEGMENTATION_PUNCTUATION;
+    crate::audio::transcription::worker::set_split_on_punctuation(split_on_punctuation);
+
+    let redemption = if split_on_punctuation {
+        crate::audio::vad::VAD_REDEMPTION_MAX_MS
+    } else {
+        prefs.vad_redemption_ms
+    };
+    crate::audio::vad::set_vad_redemption_ms(redemption);
+}
