@@ -101,7 +101,7 @@
     },
     "summaryLanguage": {
       "title": "摘要语言",
-      "description": "将一种语言固定为新会议的默认语言。未固定的语言仍会作为快捷选项出现在摘要生成器中。“自动”会使用转录中占主导的语言。",
+      "description": "摘要默认使用界面显示语言，除非你在这里固定另一种。固定的语言会成为新会议的默认值；未固定的语言仍作为快捷选项出现在摘要生成器中。",
       "pinAsDefault": "将 {{language}} 固定为默认语言",
       "unpinAsDefault": "取消将 {{language}} 固定为默认语言",
       "clickToSetDefault": "点击设为默认",
@@ -109,7 +109,7 @@
       "remove": "移除 {{language}}",
       "addLanguage": "＋ 添加语言",
       "defaultHint": "默认：{{language}} —— 再次点击可取消。最多 5 个快捷选项。",
-      "noDefaultHint": "点击任意语言即可将其设为默认。最多 5 个快捷选项。"
+      "noDefaultHint": "未固定任何语言 —— 摘要跟随界面显示语言。点击任意语言即可固定。最多 5 个快捷选项。"
     },
     "beta": {
       "bannerTitle": "实验功能",

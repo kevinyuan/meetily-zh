@@ -101,7 +101,7 @@
     },
     "summaryLanguage": {
       "title": "Summary Language",
-      "description": "Pin one language as the default for new meetings. Unpinned languages remain as quick-switch options in the summary generator. Auto uses the dominant transcript language.",
+      "description": "Summaries are written in the display language unless you pin another one here. Pinned language becomes the default for new meetings; unpinned languages stay as quick-switch options in the summary generator.",
       "pinAsDefault": "Pin {{language}} as default",
       "unpinAsDefault": "Unpin {{language}} as default",
       "clickToSetDefault": "Click to set as default",
@@ -109,7 +109,7 @@
       "remove": "Remove {{language}}",
       "addLanguage": "＋ Add language",
       "defaultHint": "Default: {{language}} - click it again to unset. Max 5 quick-switch options.",
-      "noDefaultHint": "Click any language to set it as your default. Max 5 quick-switch options."
+      "noDefaultHint": "No language pinned — summaries follow the display language. Click any language to pin it. Max 5 quick-switch options."
     },
     "beta": {
       "bannerTitle": "Beta Features",

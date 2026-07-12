@@ -9,15 +9,24 @@ import Analytics from '@/lib/analytics';
 import { isOllamaNotInstalledError } from '@/lib/utils';
 import { BuiltInModelInfo } from '@/lib/builtin-ai';
 import {
-  detectAndCacheSummaryLanguage,
   readMeetingSummaryLanguage,
-  readCachedDetectedSummaryLanguage,
+  resolvePinnedSummaryLanguageDefault,
 } from '@/lib/summary-language-preferences';
+import { uiLanguageToEngineCode } from '@/i18n/languages';
 
-async function resolveSummaryLanguage(
-  meetingId: string,
-  transcriptTexts: string[]
-): Promise<string | null> {
+/**
+ * The language a summary is written in.
+ *
+ * Follows the display language. Detecting it from the transcript was tried and got it
+ * wrong often enough to be worse than useless — a meeting with any code-switching, or
+ * a short one, would be misclassified and the summary would come back in a language
+ * the user did not ask for. The display language is something the user actually chose,
+ * so it is the honest default.
+ *
+ * An explicit choice still wins: per-meeting first, then the pinned default from
+ * settings (which itself may be the "same as display language" sentinel).
+ */
+async function resolveSummaryLanguage(meetingId: string): Promise<string | null> {
   try {
     const perMeeting = await readMeetingSummaryLanguage(meetingId);
     if (perMeeting.language) return perMeeting.language;
@@ -28,25 +37,10 @@ async function resolveSummaryLanguage(
     });
   }
 
-  try {
-    const cachedDetected = await readCachedDetectedSummaryLanguage(meetingId);
-    if (cachedDetected) return cachedDetected;
-  } catch (err) {
-    console.warn('Failed to load cached detected summary language:', err);
-  }
+  const pinned = resolvePinnedSummaryLanguageDefault();
+  if (pinned) return pinned;
 
-  try {
-    const detection = await detectAndCacheSummaryLanguage(meetingId, transcriptTexts);
-    if (detection.reason === 'tie') {
-      toast.warning(i18n.t('meetingArea.summary.language.bilingualTitle'), {
-        description: i18n.t('meetingArea.summary.language.bilingualDescription'),
-      });
-    }
-    return detection.language;
-  } catch (err) {
-    console.warn('Failed to detect transcript summary language:', err);
-    return null;
-  }
+  return uiLanguageToEngineCode(i18n.language);
 }
 
 type SummaryStatus = 'idle' | 'processing' | 'summarizing' | 'regenerating' | 'completed' | 'error';
@@ -149,11 +143,8 @@ export function useSummaryGeneration({
         }
       );
 
-      // Resolve explicit metadata override first; Auto detects the transcript language.
-      const summaryLanguage = await resolveSummaryLanguage(
-        meeting.id,
-        transcriptTexts?.length ? transcriptTexts : [transcriptText]
-      );
+      // Explicit per-meeting choice, else the pinned default, else the display language.
+      const summaryLanguage = await resolveSummaryLanguage(meeting.id);
 
       // Process transcript and get process_id
       const result = await invokeTauri('api_process_transcript', {
