@@ -287,7 +287,9 @@ export default function RootLayout({
         </I18nProvider>
         </AppErrorBoundary>
 
-        <Toaster position="bottom-center" richColors closeButton />
+        {/* Bottom-right: bottom-center sat directly on top of the input box below the
+            transcript, so a toast blocked the very control the user reaches for next. */}
+        <Toaster position="bottom-right" richColors closeButton />
       </body>
     </html>
   )
