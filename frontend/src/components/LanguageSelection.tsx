@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Analytics from '@/lib/analytics';
-import { toast } from 'sonner';
 import { useConfig } from '@/contexts/ConfigContext';
 import { FOLLOW_UI_LANGUAGE, LANGUAGE_METADATA } from '@/i18n/languages';
 
@@ -166,7 +165,11 @@ export function LanguageSelection({
       onLanguageChange(languageCode);
       console.log('Language preference saved:', languageCode);
 
-      // Track language selection analytics
+      // Track language selection analytics.
+      // No toasts around this: the preference is already applied to local state above
+      // (the picker visibly shows the new language), and the only thing that can throw
+      // here is the analytics call — a background failure the user cannot act on and
+      // which has nothing to do with whether their language "saved".
       const selectedLang = LANGUAGES.find(lang => lang.code === languageCode);
       await Analytics.track('language_selected', {
         language_code: languageCode,
@@ -174,17 +177,8 @@ export function LanguageSelection({
         is_auto_detect: (languageCode === 'auto').toString(),
         is_auto_translate: (languageCode === 'auto-translate').toString()
       });
-
-      // Show success toast
-      const languageName = selectedLang?.name || languageCode;
-      toast.success(t('settingsArea.languageSelection.savedToast'), {
-        description: t('settingsArea.languageSelection.savedDescription', { language: languageName })
-      });
     } catch (error) {
-      console.error('Failed to save language preference:', error);
-      toast.error(t('settingsArea.languageSelection.saveFailed'), {
-        description: error instanceof Error ? error.message : String(error)
-      });
+      console.error('Failed to track language preference selection:', error);
     } finally {
       setSaving(false);
     }

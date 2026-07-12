@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
-import { toast } from 'sonner';
-import i18n from '@/i18n';
 import Analytics from '@/lib/analytics';
 
 export function useTemplates() {
@@ -32,10 +30,9 @@ export function useTemplates() {
 
   // Handle template selection
   const handleTemplateSelection = useCallback((templateId: string, templateName: string) => {
+    // No toast: the dropdown closes showing the newly selected template.
     setSelectedTemplate(templateId);
-    toast.success(i18n.t('meetingArea.toasts.templateSelected'), {
-      description: i18n.t('meetingArea.toasts.templateSelectedDescription', { name: templateName }),
-    });
+    console.log('Template selected:', templateName);
     Analytics.trackFeatureUsed('template_selected');
   }, []);
 

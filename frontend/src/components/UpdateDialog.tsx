@@ -144,14 +144,10 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
       // Relaunch the app
       await relaunch();
     } catch (err: any) {
+      // No toast: the dialog stays open and renders `error` inline in a red panel.
       console.error('Update failed:', err);
       setError(err.message || t('onboardingArea.dialogs.update.errors.installFailed'));
       setIsDownloading(false);
-      toast.error(
-        t('onboardingArea.dialogs.update.toasts.failed', {
-          error: err.message || t('onboardingArea.dialogs.update.errors.unknown'),
-        })
-      );
     }
   };
 

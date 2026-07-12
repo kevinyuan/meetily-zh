@@ -60,12 +60,10 @@ export function ParakeetModelManager({
 
         setInitialized(true);
       } catch (err) {
+        // The failure is rendered inline as a red panel below; a toast on top of it
+        // would say the same thing twice.
         console.error('Failed to initialize Parakeet:', err);
         setError(err instanceof Error ? err.message : i18n.t('modelsArea.common.loadFailed'));
-        toast.error(i18n.t('modelsArea.toast.loadModelsFailed'), {
-          description: err instanceof Error ? err.message : i18n.t('modelsArea.common.unknownError'),
-          duration: 5000
-        });
       } finally {
         setLoading(false);
       }
@@ -136,13 +134,9 @@ export function ParakeetModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.success(
-            i18n.t('modelsArea.toast.modelReady', { model: displayName }),
-            {
-              description: i18n.t('modelsArea.toast.modelReadyDescription'),
-              duration: 4000
-            }
-          );
+          // No toast: DownloadProgressToast listens to the same event and already
+          // shows the completion toast for Parakeet downloads.
+          console.log(`Parakeet model ready: ${displayName}`);
 
           // Auto-select after download using stable refs
           if (onModelSelectRef.current) {
@@ -179,14 +173,9 @@ export function ParakeetModelManager({
           // Clean up throttle data
           progressThrottleRef.current.delete(modelName);
 
-          toast.error(i18n.t('modelsArea.toast.downloadFailed', { model: displayName }), {
-            description: error,
-            duration: 6000,
-            action: {
-              label: i18n.t('modelsArea.common.retry'),
-              onClick: () => downloadModel(modelName)
-            }
-          });
+          // No toast: DownloadProgressToast listens to the same event and already
+          // shows the (categorized) error, and the card grows its own Retry button.
+          console.error(`Parakeet model download failed for ${displayName}:`, error);
         }
       );
     };
@@ -237,9 +226,7 @@ export function ParakeetModelManager({
       // Clean up throttle data
       progressThrottleRef.current.delete(modelName);
 
-      toast.info(t('modelsArea.toast.downloadCancelled', { model: displayName }), {
-        duration: 3000
-      });
+      console.log(`Download cancelled: ${displayName}`);
     } catch (err) {
       console.error('Failed to cancel download:', err);
       toast.error(t('modelsArea.toast.cancelFailed'), {
@@ -266,10 +253,9 @@ export function ParakeetModelManager({
         )
       );
 
-      toast.info(i18n.t('modelsArea.toast.downloading', { model: displayName }), {
-        description: i18n.t('modelsArea.toast.downloadingDescription'),
-        duration: 5000  // Auto-dismiss after 5 seconds
-      });
+      // No "downloading…" toast: the card grows a live progress bar and
+      // DownloadProgressToast shows a global one.
+      console.log(`Downloading model: ${displayName}`);
 
       await ParakeetAPI.downloadModel(modelName);
     } catch (err) {
@@ -298,11 +284,10 @@ export function ParakeetModelManager({
       await saveModelSelection(modelName);
     }
 
+    // The selected card is highlighted and the helper text below names the model —
+    // no toast needed to say what the user is already looking at.
     const displayInfo = getModelDisplayInfo(modelName);
-    const displayName = displayInfo?.friendlyName || modelName;
-    toast.success(t('modelsArea.toast.switchedTo', { model: displayName }), {
-      duration: 3000
-    });
+    console.log(`Switched to model: ${displayInfo?.friendlyName || modelName}`);
   };
 
   const deleteModel = async (modelName: string) => {
@@ -316,10 +301,8 @@ export function ParakeetModelManager({
       const modelList = await ParakeetAPI.getAvailableModels();
       setModels(modelList);
 
-      toast.success(t('modelsArea.toast.deleted', { model: displayName }), {
-        description: t('modelsArea.toast.deletedDescription'),
-        duration: 3000
-      });
+      // The card flips back to a "Download" state, which is the confirmation.
+      console.log(`Deleted model: ${displayName}`);
 
       // If deleted model was selected, clear selection
       if (selectedModel === modelName && onModelSelect) {

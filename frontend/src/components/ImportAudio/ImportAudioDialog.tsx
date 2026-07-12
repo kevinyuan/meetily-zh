@@ -107,8 +107,10 @@ export function ImportAudioDialog({
   }, [router, refetchMeetings, onComplete, onOpenChange, t]);
 
   const handleImportError = useCallback((error: string) => {
-    toast.error(t('onboardingArea.dialogs.importAudio.toasts.failedTitle'), { description: error });
-  }, [t]);
+    // No toast: the dialog stays open and renders the error inline, next to the retry
+    // affordances. A toast would just be the same sentence a second time.
+    console.error('Audio import failed:', error);
+  }, []);
 
   const {
     status,
@@ -200,8 +202,9 @@ export function ImportAudioDialog({
 
   const handleCancel = async () => {
     if (isProcessing) {
+      // No toast: the user pressed Cancel and the dialog closes in response.
       await cancelImport();
-      toast.info(t('onboardingArea.dialogs.importAudio.toasts.cancelled'));
+      console.log('Audio import cancelled');
     }
     onOpenChange(false);
   };

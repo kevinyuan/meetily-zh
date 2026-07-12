@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, FolderOpen, Database, CheckCircle2, XCircle } from 'lucide-react';
@@ -67,8 +66,10 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
         legacyDbPath: detectedPath,
       });
 
+      // No toasts in this component: importState already drives an inline
+      // success/error panel, and the window reloads a second later — which would kill
+      // the toast anyway.
       setImportState('success');
-      toast.success(t('onboardingArea.dialogs.database.toasts.imported'));
 
       // Wait 1 second for user to see success, then reload window to refresh all data
       setTimeout(() => {
@@ -78,7 +79,6 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       console.error('Error importing database:', error);
       setErrorMessage(String(error));
       setImportState('error');
-      toast.error(t('onboardingArea.dialogs.database.toasts.importFailed', { error: String(error) }));
       setTimeout(() => setImportState('idle'), 3000);
     }
   };
@@ -90,7 +90,6 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       await invoke('initialize_fresh_database');
 
       setImportState('success');
-      toast.success(t('onboardingArea.dialogs.database.toasts.initialized'));
 
       // Wait 1 second for user to see success, then reload window to start fresh
       setTimeout(() => {
@@ -100,7 +99,6 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       console.error('Error initializing database:', error);
       setErrorMessage(String(error));
       setImportState('error');
-      toast.error(t('onboardingArea.dialogs.database.toasts.initFailed', { error: String(error) }));
       setTimeout(() => setImportState('idle'), 3000);
     }
   };

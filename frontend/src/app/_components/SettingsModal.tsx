@@ -4,7 +4,6 @@ import { DeviceSelection } from "@/components/DeviceSelection";
 import { LanguageSelection } from "@/components/LanguageSelection";
 import { TranscriptSettings } from "@/components/TranscriptSettings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useConfig } from "@/contexts/ConfigContext";
 import { useRecordingState } from "@/contexts/RecordingStateContext";
@@ -193,14 +192,7 @@ export function SettingsModals({
           <div className="mt-6 flex justify-end">
             <button
               onClick={() => {
-                const micDevice = selectedDevices.micDevice || t('settingsArea.common.defaultDevice');
-                const systemDevice = selectedDevices.systemDevice || t('settingsArea.common.defaultDevice');
-                toast.success(t('settingsArea.modals.devices.selectedToast'), {
-                  description: t('settingsArea.modals.devices.selectedDescription', {
-                    microphone: micDevice,
-                    systemAudio: systemDevice
-                  })
-                });
+                // No toast: the device pickers above already show the chosen devices.
                 onClose('deviceSettings');
               }}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

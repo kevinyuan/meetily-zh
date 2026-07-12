@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import Analytics from '@/lib/analytics';
 import { applyPinnedSummaryLanguageToMeeting } from '@/lib/summary-language-preferences';
-import { toast } from 'sonner';
 import i18n from '@/i18n';
 
 export interface AudioFileInfo {
@@ -114,10 +113,10 @@ export function useImportAudio({
           try {
             await applyPinnedSummaryLanguageToMeeting(event.payload.meeting_id);
           } catch (error) {
+            // The import itself succeeded; only the default summary-language preference
+            // did not stick. Nothing the user can do, and it is fixable from the summary
+            // panel's language picker later.
             console.warn('Failed to apply pinned summary language to imported meeting:', error);
-            toast.warning(i18n.t('onboardingArea.dialogs.importAudio.toasts.summaryLanguageTitle'), {
-              description: i18n.t('onboardingArea.dialogs.importAudio.toasts.summaryLanguageDescription'),
-            });
           }
           onCompleteRef.current?.(event.payload);
         }

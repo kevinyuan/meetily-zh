@@ -31,10 +31,9 @@ async function resolveSummaryLanguage(meetingId: string): Promise<string | null>
     const perMeeting = await readMeetingSummaryLanguage(meetingId);
     if (perMeeting.language) return perMeeting.language;
   } catch (err) {
+    // Non-actionable: we fall through to the pinned default / display language below,
+    // so the generation still happens in a sensible language. Log it, don't toast it.
     console.warn('Failed to load meeting summary language:', err);
-    toast.warning(i18n.t('meetingArea.summary.language.loadFailedTitle'), {
-      description: i18n.t('meetingArea.summary.language.loadFailedGenerationDescription'),
-    });
   }
 
   const pinned = resolvePinnedSummaryLanguageDefault();
@@ -129,18 +128,10 @@ export function useSummaryGeneration({
         await Analytics.trackCustomPromptUsed(customPrompt.trim().length);
       }
 
-      // Show toast notification for generation start
-      toast.info(
-        isRegeneration
-          ? i18n.t('meetingArea.toasts.regeneratingSummary')
-          : i18n.t('meetingArea.toasts.generatingSummary'),
-        {
-          description: i18n.t('meetingArea.toasts.usingModel', {
-            provider: modelConfig.provider,
-            model: modelConfig.model,
-          }),
-          duration: 3000,
-        }
+      // No "generating…" toast: summaryStatus drives a visible in-panel status message
+      // and the button flips to "Stop", so the toast was pure narration.
+      console.log(
+        `${isRegeneration ? 'Regenerating' : 'Generating'} summary with ${modelConfig.provider}/${modelConfig.model}`
       );
 
       // Explicit per-meeting choice, else the pinned default, else the display language.
@@ -469,7 +460,6 @@ export function useSummaryGeneration({
     // Check if model config is still loading
     if (isModelConfigLoading) {
       console.log('⏳ Model configuration is still loading, please wait...');
-      toast.info(i18n.t('meetingArea.models.loadingConfig'));
       return;
     }
 
@@ -664,15 +654,10 @@ export function useSummaryGeneration({
     // Stop polling
     stopSummaryPolling(meeting.id);
 
-    // Reset status to idle
+    // Reset status to idle. No toast: the user pressed Stop, and the button flipping
+    // back from "Stop" to "Generate" is the confirmation.
     setSummaryStatus('idle');
     setSummaryError(null);
-
-    // Show toast notification
-    toast.info(i18n.t('meetingArea.toasts.generationStopped'), {
-      description: i18n.t('meetingArea.toasts.generationStoppedDescription'),
-      duration: 3000,
-    });
   }, [meeting.id, stopSummaryPolling]);
 
   return {

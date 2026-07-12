@@ -147,7 +147,7 @@ export function useModelConfiguration({ serverAddress }: UseModelConfigurationPr
       const { emit } = await import('@tauri-apps/api/event');
       await emit('model-config-updated', payload);
 
-      toast.success(i18n.t('meetingArea.modelConfig.saveSuccess'));
+      // No success toast: the settings dialog closes onto the new provider/model.
 
       await Analytics.trackSettingsChanged('model_config', `${payload.provider}_${payload.model}`);
     } catch (error) {

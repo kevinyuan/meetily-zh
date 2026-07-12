@@ -405,7 +405,8 @@ const Sidebar: React.FC = () => {
       // Track the edit
       Analytics.trackButtonClick('edit_meeting_title', 'sidebar');
 
-      toast.success(t('recordingArea.sidebar.toasts.titleUpdated'));
+      // No success toast: the new title is right there in the sidebar list.
+      console.log('Meeting title updated');
 
       // Close modal and reset state
       setEditModalState({ isOpen: false, meetingId: null, currentTitle: '' });

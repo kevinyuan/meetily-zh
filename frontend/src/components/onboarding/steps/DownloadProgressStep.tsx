@@ -88,16 +88,14 @@ export function DownloadProgressStep() {
       await invoke('sensevoice_download_model', { modelName: TRANSCRIPTION_MODEL });
       // Progress events will update state
     } catch (error) {
+      // No toast: the download card renders `state.error` inline with its own Retry
+      // button, so the toast was the same message shown twice.
       console.error('[DownloadProgressStep] Retry failed:', error);
       setTranscriptionModelState((prev) => ({
         ...prev,
         status: 'error',
         error: error instanceof Error ? error.message : t('onboardingArea.download.errors.retryFailed'),
       }));
-
-      toast.error(t('onboardingArea.download.toasts.retryFailedTitle'), {
-        description: t('onboardingArea.download.toasts.retryFailedDescription'),
-      });
     } finally {
       // Allow retry again after 2 seconds
       setTimeout(() => {
@@ -136,16 +134,14 @@ export function DownloadProgressStep() {
       }
       await invoke('builtin_ai_download_model', { modelName });
     } catch (error) {
+      // No toast: the download card renders `state.error` inline with its own Retry
+      // button, so the toast was the same message shown twice.
       console.error('[DownloadProgressStep] Summary retry failed:', error);
       setSummaryState((prev) => ({
         ...prev,
         status: 'error',
         error: error instanceof Error ? error.message : t('onboardingArea.download.errors.retryFailed'),
       }));
-
-      toast.error(t('onboardingArea.download.toasts.summaryRetryFailedTitle'), {
-        description: t('onboardingArea.download.toasts.retryFailedDescription'),
-      });
     } finally {
       // Allow retry again after 2 seconds
       setTimeout(() => {
