@@ -180,7 +180,11 @@
         "description": "{{segments}} transcript segments saved."
       },
       "saveError": "Failed to save meeting",
-      "noMeetingId": "No meeting ID received from save operation"
+      "noMeetingId": "No meeting ID received from save operation",
+      "pipelineError": {
+        "title": "Recording interrupted",
+        "description": "Audio processing failed and the recording was stopped. Transcript so far is kept — please start a new recording."
+      }
     }
   }
 }

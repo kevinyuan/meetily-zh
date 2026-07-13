@@ -180,7 +180,11 @@
         "description": "已保存 {{segments}} 条转录片段。"
       },
       "saveError": "保存会议失败",
-      "noMeetingId": "保存操作未返回会议 ID"
+      "noMeetingId": "保存操作未返回会议 ID",
+      "pipelineError": {
+        "title": "录音已中断",
+        "description": "音频处理出错，录音已停止。已转录的内容会被保留，请重新开始录音。"
+      }
     }
   }
 }
