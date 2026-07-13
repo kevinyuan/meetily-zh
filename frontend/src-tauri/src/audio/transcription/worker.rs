@@ -7,8 +7,9 @@ use super::provider::TranscriptionError;
 use crate::audio::AudioChunk;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Runtime};
 
 // Sequence counter for transcript updates
@@ -89,6 +90,57 @@ pub struct TranscriptUpdate {
 
 // NOTE: get_transcript_history and get_recording_meeting_name functions
 // have been moved to recording_commands.rs where they have access to RECORDING_MANAGER
+
+/// Shortest utterance whose auto-detected language may be trusted, in seconds.
+///
+/// SenseVoice identifies the language of each utterance independently, which is what makes
+/// per-sentence tagging possible — but it needs about a second of audio to do it. Measured
+/// over a real 919-line Chinese meeting:
+///
+/// | segment length | mislabelled |
+/// |----------------|-------------|
+/// | < 0.5s         | 54.8%       |
+/// | 0.5 – 1s       | 23.8%       |
+/// | 1 – 2s         |  4.5%       |
+/// | >= 2s          |  0.6%       |
+///
+/// And a misread language does more than mislabel the line: the model then *decodes* in
+/// that language, so Chinese interjections came back as Japanese kana — 「对啦呢」 as
+/// `だらね`, 「嗯嗯嗯」 as `うんうんうん`. The text itself was wrong, not just the tag.
+///
+/// So auto-detection is only trusted on segments long enough to earn it. Shorter ones are
+/// decoded in the language the meeting is actually being held in (see `dominant_language`).
+const MIN_RELIABLE_LANGUAGE_ID_SECS: f64 = 1.0;
+
+/// Languages detected on segments long enough to be trusted, this recording.
+static LANGUAGE_TALLY: Mutex<BTreeMap<String, u32>> = Mutex::new(BTreeMap::new());
+
+/// Record a language detected on a segment we trust.
+fn note_confident_language(language: &str) {
+    if let Ok(mut tally) = LANGUAGE_TALLY.lock() {
+        *tally.entry(language.to_string()).or_insert(0) += 1;
+    }
+}
+
+/// The language this meeting is mostly being held in, if we have seen enough to say.
+///
+/// `None` until the first trustworthy segment arrives — during those first seconds a short
+/// utterance still falls back to auto-detection, because guessing a language would be worse
+/// than the model's own guess.
+fn dominant_language() -> Option<String> {
+    let tally = LANGUAGE_TALLY.lock().ok()?;
+    tally
+        .iter()
+        .max_by_key(|(_, count)| **count)
+        .map(|(language, _)| language.clone())
+}
+
+/// Forget the previous meeting's languages. Called when a recording starts.
+pub fn reset_language_tally() {
+    if let Ok(mut tally) = LANGUAGE_TALLY.lock() {
+        tally.clear();
+    }
+}
 
 /// Optimized parallel transcription task ensuring ZERO chunk loss
 pub fn start_transcription_task<R: Runtime>(
@@ -542,12 +594,27 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
             }
         }
         TranscriptionEngine::SenseVoice(sensevoice_engine) => {
-            // SenseVoice takes an ISO-639-1 hint; unsupported codes and "auto" become
-            // None, which lets the model run its own (reliable) language ID.
-            let language = crate::get_language_preference_internal();
+            // SenseVoice takes an ISO-639-1 hint; unsupported codes and "auto" become None,
+            // which lets the model run its own language ID.
+            let pinned_language = crate::get_language_preference_internal()
+                .as_deref()
+                .and_then(crate::sensevoice_engine::normalize_language);
+
+            // Auto-detection is only trusted on segments long enough to earn it; below that
+            // it hallucinates, and decodes the audio in the language it hallucinated.
+            let trust_auto_detection = chunk_duration_s >= MIN_RELIABLE_LANGUAGE_ID_SECS;
+            let language = match pinned_language {
+                // The user pinned a language — always honour it.
+                Some(language) => Some(language),
+                None if trust_auto_detection => None,
+                // Too short to identify on its own: decode it in the language this meeting
+                // is being held in. Falls back to auto until we have seen a segment long
+                // enough to establish that.
+                None => dominant_language(),
+            };
 
             match sensevoice_engine
-                .transcribe_audio(speech_samples, language)
+                .transcribe_audio(speech_samples, language.clone())
                 .await
             {
                 Ok((sentences, detected_language)) => {
@@ -555,10 +622,25 @@ async fn transcribe_chunk_with_provider<R: Runtime>(
                         return Ok((Vec::new(), None, false, None));
                     }
 
+                    // A segment decoded in a language we chose reports that language back;
+                    // one we let the model identify reports what it found. Either way the
+                    // line is tagged with the language it was actually decoded in.
+                    let detected_language = detected_language.or_else(|| language.clone());
+
+                    // Only segments long enough to identify get a vote on what language the
+                    // meeting is in — otherwise a single mis-heard interjection could drag
+                    // every later short utterance into the wrong language with it.
+                    if trust_auto_detection {
+                        if let Some(language) = detected_language.as_deref() {
+                            note_confident_language(language);
+                        }
+                    }
+
                     info!(
-                        "SenseVoice transcribed chunk {} into {} sentence(s) (detected: {:?})",
+                        "SenseVoice transcribed chunk {} into {} sentence(s) ({:.1}s, detected: {:?})",
                         chunk.chunk_id,
                         sentences.len(),
+                        chunk_duration_s,
                         detected_language
                     );
 
@@ -716,4 +798,57 @@ fn format_recording_time(seconds: f64) -> String {
     let secs = total_seconds % 60;
 
     format!("[{:02}:{:02}]", minutes, secs)
+}
+
+#[cfg(test)]
+mod language_tally_tests {
+    use super::*;
+
+    /// These tests share one process-wide tally, so they must not run concurrently.
+    static TEST_GUARD: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn dominant_language_is_the_one_heard_most() {
+        let _guard = TEST_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        reset_language_tally();
+
+        assert_eq!(
+            dominant_language(),
+            None,
+            "with nothing heard yet there is no dominant language — a short utterance must \
+             fall back to auto-detection rather than being forced into a guess"
+        );
+
+        note_confident_language("zh");
+        note_confident_language("en");
+        note_confident_language("zh");
+
+        assert_eq!(dominant_language().as_deref(), Some("zh"));
+    }
+
+    /// The mis-detections this whole mechanism exists to stop must not feed back into it.
+    #[test]
+    fn a_meeting_does_not_inherit_the_previous_meeting_s_language() {
+        let _guard = TEST_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        reset_language_tally();
+
+        note_confident_language("ja");
+        assert_eq!(dominant_language().as_deref(), Some("ja"));
+
+        reset_language_tally();
+        assert_eq!(
+            dominant_language(),
+            None,
+            "a new recording must start with no opinion about its language"
+        );
+    }
+
+    /// The threshold is the whole point: below it the model's language ID is a coin flip
+    /// (55% wrong under 0.5s in a real meeting), above it it is dependable (0.6% wrong).
+    #[test]
+    fn only_segments_past_the_threshold_are_trusted() {
+        assert!(0.4 < MIN_RELIABLE_LANGUAGE_ID_SECS, "0.4s must not be trusted");
+        assert!(0.9 < MIN_RELIABLE_LANGUAGE_ID_SECS, "0.9s must not be trusted");
+        assert!(2.5 >= MIN_RELIABLE_LANGUAGE_ID_SECS, "2.5s must be trusted");
+    }
 }

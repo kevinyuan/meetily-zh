@@ -38,6 +38,14 @@ export interface TranscriptUpdate {
   audio_start_time: number; // Seconds from recording start
   audio_end_time: number;   // Seconds from recording start
   duration: number;          // Segment duration in seconds
+  /**
+   * Language SenseVoice detected for THIS utterance ("zh", "en", "ja", "ko", "yue").
+   *
+   * The backend has always emitted this; the field was missing here, so every mapping
+   * from an update to a `Transcript` silently dropped it and the language column was
+   * NULL for every line ever saved. Absent for engines that don't report it.
+   */
+  language?: string;
 }
 
 export interface Block {
