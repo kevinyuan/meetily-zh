@@ -236,14 +236,12 @@
           "description": "Google Meet, Zoom, Teams-online or offline."
         }
       },
-      "comingSoonLabel": "Coming soon:",
-      "comingSoonText": "A library of on-device AI agents-automating follow-ups, action tracking, and more.",
-      "ctaTitle": "Ready to push your business further?",
-      "ctaTextPrefix": "If you're planning to build privacy-first custom AI agents or a fully tailored product for your",
-      "ctaTextBusiness": "business",
-      "ctaTextSuffix": ", we can help you build it.",
-      "ctaButton": "Chat with the Zackriya team",
-      "footer": "Built by Zackriya Solutions"
+      "footer": "A fork of Meetily, an open-source project by Zackriya Solutions",
+      "fork": {
+        "title": "About this fork",
+        "text": "A Chinese-first fork of Meetily, adding local SenseVoice transcription, per-sentence language detection and a Simplified Chinese interface. Its version and update channel are independent of upstream.",
+        "button": "View source"
+      }
     },
     "analytics": {
       "title": "Usage Analytics",

@@ -236,14 +236,12 @@
           "description": "Google Meet、Zoom、Teams —— 在线或离线均可。"
         }
       },
-      "comingSoonLabel": "即将推出：",
-      "comingSoonText": "一整套本地 AI 智能体，自动完成跟进、行动项跟踪等工作。",
-      "ctaTitle": "准备好让你的业务更进一步了吗？",
-      "ctaTextPrefix": "如果你打算为你的",
-      "ctaTextBusiness": "企业",
-      "ctaTextSuffix": "构建隐私优先的定制 AI 智能体或完全定制的产品，我们可以帮你实现。",
-      "ctaButton": "联系 Zackriya 团队",
-      "footer": "由 Zackriya Solutions 打造"
+      "footer": "基于 Zackriya Solutions 的开源项目 Meetily 二次开发",
+      "fork": {
+        "title": "关于这个分支",
+        "text": "本应用是 Meetily 的中文优先分支，新增 SenseVoice 本地中文转录、逐句语言检测与简体中文界面。版本号与更新通道均独立于上游。",
+        "button": "查看源码"
+      }
     },
     "analytics": {
       "title": "使用分析",

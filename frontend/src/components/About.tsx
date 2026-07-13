@@ -23,9 +23,14 @@ export function About() {
         getVersion().then(setCurrentVersion).catch(console.error);
     }, []);
 
-    const handleContactClick = async () => {
+    // Upstream's About page sent people to meetily.zackriya.com to talk to their sales
+    // team. That is their product and their release line, not this one — this build is a
+    // fork with a different transcription engine, a different version, and a different
+    // update channel, so pointing users there could only mislead them. It links to this
+    // fork's own source instead.
+    const handleSourceClick = async () => {
         try {
-            await invoke('open_external_url', { url: 'https://meetily.zackriya.com/#about' });
+            await invoke('open_external_url', { url: 'https://github.com/kevinyuan/meetily-zh' });
         } catch (error) {
             console.error('Failed to open link:', error);
         }
@@ -120,28 +125,28 @@ export function About() {
                 </div>
             </div>
 
-            {/* Coming Soon - Compact */}
-            <div className="bg-blue-50 rounded p-3">
-                <p className="text-s text-blue-800">
-                    <span className="font-bold">{t('settingsArea.about.comingSoonLabel')}</span> {t('settingsArea.about.comingSoonText')}
-                </p>
-            </div>
-
-            {/* CTA Section - Compact */}
+            {/* What this fork is.
+                This replaced upstream's "coming soon" roadmap and their sales pitch. Both
+                described a product this build is not: the roadmap is a promise upstream
+                made, not one this fork can keep, and the pitch invited users to contact a
+                vendor who did not ship the binary they are running. */}
             <div className="text-center space-y-2">
-                <h3 className="text-medium font-semibold text-gray-800">{t('settingsArea.about.ctaTitle')}</h3>
+                <h3 className="text-medium font-semibold text-gray-800">{t('settingsArea.about.fork.title')}</h3>
                 <p className="text-s text-gray-600">
-                    {t('settingsArea.about.ctaTextPrefix')} <span className="font-bold">{t('settingsArea.about.ctaTextBusiness')}</span>{t('settingsArea.about.ctaTextSuffix')}
+                    {t('settingsArea.about.fork.text')}
                 </p>
                 <button
-                    onClick={handleContactClick}
+                    onClick={handleSourceClick}
                     className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors duration-200 shadow-sm hover:shadow-md"
                 >
-                    {t('settingsArea.about.ctaButton')}
+                    {t('settingsArea.about.fork.button')}
                 </button>
             </div>
 
-            {/* Footer - Compact */}
+            {/* Attribution to upstream, as plain text.
+                Credit belongs to them, but a link would invite users into a different
+                release line than the one they are running. The README carries the link,
+                with the explanation it needs. */}
             <div className="pt-2 border-t border-gray-200 text-center">
                 <p className="text-xs text-gray-400">
                     {t('settingsArea.about.footer')}

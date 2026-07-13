@@ -1,102 +1,131 @@
 # Meetily-ZH
 
-A Chinese-first fork of [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) — a privacy-first AI meeting assistant that records, transcribes and summarises meetings **entirely on your own machine**. No cloud, no audio leaving the device.
+[English](README.en.md) · **中文**
 
-Everything upstream does, this does too. What it adds is Chinese support that actually works.
+[**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) 的中文优先分支 —— 一个隐私优先的 AI 会议助手，录音、转录、生成摘要**全部在你自己的电脑上完成**。不上云，音频不出设备。
 
----
-
-## Why this fork exists
-
-Upstream Meetily is a good piece of software, but its transcription and summarisation paths quietly assume English. Used on Chinese meetings, three things went wrong — and none of them was a small bug:
-
-1. **Chinese speech produced English transcripts.** The default language preference was `auto-translate`: detect the language, then *translate it into English*.
-2. **Chinese meetings produced English summaries.** Summaries were drafted in English by construction. On "auto", a Chinese meeting was summarised and then translated *into* English — the exact opposite of what the setting promised.
-3. **The English-only engine was the default.** Onboarding installed Parakeet, which cannot transcribe Chinese at all.
-
-So this fork fixes the defaults, adds a transcription engine built for Chinese, and translates the interface.
+上游有的功能这里都有。新增的，是**真正可用**的中文支持。
 
 ---
 
-## What's added
+## 为什么会有这个分支
 
-### SenseVoice — a Chinese-first transcription engine
+上游 Meetily 是个不错的项目，但它的转录和摘要链路默认假设你说英语。用它开中文会议，有三件事会出错，而且每一件都不是小毛病：
 
-[SenseVoice](https://github.com/FunAudioLLM/SenseVoice) (Alibaba Tongyi / FunAudioLLM) joins Whisper and Parakeet as a third engine, and is the new default. It handles **Chinese, English, Japanese, Korean and Cantonese**, runs roughly **60× realtime on CPU**, and outputs punctuation.
+1. **说中文，转录出来是英文。** 默认的语言选项是 `auto-translate`：检测语言，然后**把它翻译成英文**。
+2. **中文会议，摘要是英文。** 摘要在代码层面就是用英文起草的。选「自动」时，中文会议会被摘要后**再翻译成英文** —— 和这个选项承诺的正好相反。
+3. **默认引擎根本不支持中文。** 引导流程默认安装 Parakeet，而它压根不能转录中文。
 
-The model is sherpa-onnx's official int8 export (~236 MB), downloaded from inside the app. It runs on the ONNX Runtime the app already ships for Parakeet, so nothing extra is bundled.
-
-### Sentence-level transcripts
-
-A transcript line used to be whatever fell between two silences longer than 400 ms. But in fluent speech the pause *between* sentences is usually shorter than that, so sentences merged — real recordings produced single lines up to **39 seconds** long.
-
-Lines can now be split on **the punctuation the model itself predicts**, with timestamps from its acoustic (CTC) alignment. Both modes are selectable in **Settings → Recording**, and engines that cannot do this fall back to the old behaviour without losing any text.
-
-### Per-sentence language detection
-
-SenseVoice identifies the language of each utterance, so a meeting that switches between Chinese and English is labelled line by line.
-
-### Chinese interface
-
-The whole UI is translated (~890 strings). The display language is autodetected from your OS locale and can be changed in **Settings → General**. Transcription language, summary language and the model filter all follow it by default.
-
-### Chinese-first defaults
-
-Transcription no longer translates to English unless you ask it to. Summaries are written in the display language. The model list filters down to engines that can actually handle the language you chose — Parakeet is hidden under Chinese, because it genuinely cannot do it.
-
-### Other fixes
-
-- **Recovered dropped speech.** Utterances shorter than 250 ms were discarded, silently eating 「嗯」「好」「对」/ "yes" / "OK". The floor is now 120 ms.
-- **Fixed the audio mixer.** System audio was mixed at full level despite a comment claiming it was attenuated, and the clipping guard then dragged the microphone down with it — quiet speech went undetected while a meeting was playing.
-- **Indexed the transcript lookup.** Opening any meeting scanned the entire transcripts table.
-- **Markdown export.** Meetings live in SQLite; export gives you plain-text copies for a folder, Git or iCloud.
-- **The macOS menu-bar icon** is a proper monochrome template icon instead of the full-colour app icon.
+所以这个分支修正了默认行为，加入了为中文而生的转录引擎，并把界面翻译成了中文。
 
 ---
 
-## Install — macOS
+## 新增了什么
 
-Apple Silicon only. Build from source:
+### SenseVoice —— 中文优先的转录引擎
+
+[SenseVoice](https://github.com/FunAudioLLM/SenseVoice)（阿里通义 / FunAudioLLM）作为第三个引擎加入，并成为新的默认选项。它支持**中文、英文、日文、韩文、粤语**，在 CPU 上约 **60 倍实时速度**，并且输出标点。
+
+模型用的是 sherpa-onnx 的官方 int8 导出版（约 236 MB），在 app 内下载。它复用 app 里已经为 Parakeet 准备的 ONNX Runtime，不额外打包任何东西。
+
+### 按句断行的转录
+
+以前，一行转录 = 两次超过 400ms 静音之间的所有内容。但正常语速下，**句子之间的停顿通常短于 400ms**，于是好几句话被粘成一行 —— 真实录音里出现过长达 **39 秒**的单行。
+
+现在可以按**模型自己预测的标点**断句，时间戳来自它的声学（CTC）对齐。两种模式都能在**「设置 → 录音」**里切换，不支持标点断句的引擎会自动回退到旧行为，不会丢失任何文字。
+
+### 逐句语言检测
+
+SenseVoice 会单独识别每一句话的语言，所以中英夹杂的会议会**逐行标注**语言。
+
+短句（不足 1 秒）的自动识别并不可靠 —— 实测中不到 0.5 秒的片段有 **54.8%** 会被识别错，而且识别错了不只是标签错，模型会**用错误的语言去解码**（中文的「对啦呢」被听成日文假名 `だらね`）。所以短句改用「本次会议的主导语言」解码，主导语言由那些足够长、可信的句子投票产生。
+
+### 中文界面
+
+整个界面已翻译（约 890 条文案）。显示语言默认根据系统区域自动检测，也可在**「设置 → 通用」**里手动切换。转录语言、摘要语言和模型筛选默认都跟随它。
+
+### 中文优先的默认值
+
+除非你明确要求，转录不再翻译成英文。摘要用界面语言撰写。模型列表会筛掉处理不了当前语言的引擎 —— 选中文时 Parakeet 会被隐藏，因为它确实做不到。
+
+### 其他修复
+
+- **找回被丢弃的语音。** 短于 250ms 的话会被直接丢掉，「嗯」「好」「对」/ "yes" / "OK" 就这样悄悄消失了。下限已降到 120ms。
+- **修复音频混音。** 系统声音明明注释写着已衰减，实际却是满音量混入，随后的削波保护又把麦克风一起压了下去 —— 会议正在播放时，小声说话就检测不到。
+- **VAD 录音中途崩溃。** Silero 的填充参数超出缓冲区时会 **panic 而不是报错**，直接打死音频管线：转录在开始几秒后彻底停止，而界面看上去还在录。
+- **转录时间戳错误。** 长段落被强制切分后，时间戳会漂移到实际时长的约 2 倍。
+- **给转录查询加索引。** 打开任何一个会议都会全表扫描 transcripts。
+- **Markdown 导出。** 会议存在 SQLite 里，导出后可以放进文件夹、Git 或 iCloud。
+- **macOS 菜单栏图标**改成了符合规范的单色模板图标，而不是直接拿彩色应用图标顶替。
+
+---
+
+## 安装 —— macOS
+
+**仅支持 Apple Silicon（arm64）。**
+
+### 方式一：下载 DMG（推荐）
+
+从 [Releases](https://github.com/kevinyuan/meetily-zh/releases/latest) 下载 `meetily_*_aarch64.dmg`，打开后拖进「应用程序」。
+
+> **首次启动请右键点击 → 打开。**
+> 这个包没有 Apple 开发者签名和公证，Gatekeeper 会拦一次。之后就能正常双击打开了。
+
+### 方式二：从源码构建
 
 ```bash
 git clone https://github.com/kevinyuan/meetily-zh.git
 cd meetily-zh/frontend
 pnpm install
-pnpm run tauri:build      # or: pnpm run tauri:dev
+./dev.sh                  # 开发模式
+pnpm run tauri:build      # 构建发布版
 ```
 
-**Prerequisites**
+**构建前置条件**
 
-- **Xcode** — the full app, not just the Command Line Tools. The `cidre` dependency (macOS system-audio capture) needs `xcodebuild`.
-- **cmake** — `brew install cmake`, used to build whisper.cpp.
+- **Xcode** —— 需要完整的 Xcode，不是只装 Command Line Tools。依赖 `cidre`（macOS 系统声音采集）需要 `xcodebuild`。
+- **cmake** —— `brew install cmake`，用于构建 whisper.cpp。
 
-**First launch** downloads the SenseVoice model (~236 MB) and a summarisation model into `~/Library/Application Support/com.meetily.ai/models/`. They are reused across builds and releases, so you never download them twice.
+> 开发时请用 `./dev.sh` 启动，不要直接用 `pnpm run tauri:dev`。
+> 后者会在 Next.js 编译完成前就打开窗口，导致 webview 读到不完整的 JS 包、React 无法完成水合 —— 表现为**界面能看见但完全点不动**。`dev.sh` 会先确认所有 chunk 完整可解析，再开窗口。
 
-macOS will ask for **microphone** and **screen recording** permission. Screen recording is what captures the *other* side of a call — without it you only record yourself.
+### 首次启动
+
+会下载 SenseVoice 模型（约 236 MB）和摘要模型到：
+
+```
+~/Library/Application Support/com.meetily-zh.ai/models/
+```
+
+它们在各次构建和发布之间复用，不会重复下载。
+
+macOS 会请求**麦克风**和**屏幕录制**权限。屏幕录制是用来采集通话中**对方**的声音的 —— 不给这个权限，你就只能录到自己。
+
+> **从上游 Meetily 迁移过来的用户注意：** 本分支使用独立的应用数据目录（`com.meetily-zh.ai`），不会读取上游 `com.meetily.ai` 下的会议和模型。两者可以共存，互不干扰。
 
 ---
 
 ## Windows
 
-**The code supports Windows. This fork has not been tested on it.**
+**代码是支持 Windows 的，但这个分支没有在 Windows 上测试过。**
 
-Upstream builds and ships Windows installers, and nothing added here is macOS-specific: SenseVoice, the ONNX runtime, the segmentation logic and the interface are all cross-platform. The repository's own workflow (`.github/workflows/build-windows.yml`) builds MSI and NSIS installers on a GitHub-hosted Windows runner, and it succeeds without a code-signing certificate (it skips signing rather than failing).
+上游会构建并发布 Windows 安装包，而这里新增的东西没有任何 macOS 专属成分：SenseVoice、ONNX Runtime、断句逻辑和界面全都是跨平台的。仓库自带的工作流（`.github/workflows/build-windows.yml`）会在 GitHub 托管的 Windows runner 上构建 MSI 和 NSIS 安装包，且在没有代码签名证书的情况下也能成功（跳过签名而非失败）。
 
-I don't have a Windows machine and don't have time to test there, so I'm making no claims about it. Two areas would need real verification first:
+我没有 Windows 机器，也没有时间去测，所以不对它做任何保证。有两块需要真机验证：
 
-- **Audio capture**, which uses WASAPI rather than CoreAudio. The mixing and voice-detection changes here were only validated on macOS, and buffer behaviour differs between the two.
-- **System-audio capture**, which is a separate implementation entirely.
+- **音频采集**，Windows 走的是 WASAPI 而不是 CoreAudio。这里的混音和静音检测改动只在 macOS 上验证过，两者的缓冲行为并不相同。
+- **系统声音采集**，那是完全独立的另一套实现。
 
-If you build and test it on Windows, please open an issue with what you find. Contributions welcome.
+如果你在 Windows 上构建并测试了，欢迎开 issue 告诉我结果。也欢迎 PR。
 
-**Linux** compiles but is not released upstream either — you would be building from source.
+**Linux** 能编译，但上游也没有发布版本 —— 你需要自己从源码构建。
 
 ---
 
-## Credits
+## 致谢
 
-- [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) by Zackriya Solutions — everything this is built on.
-- [**SenseVoice**](https://github.com/FunAudioLLM/SenseVoice) by Alibaba's Tongyi Lab, exported to ONNX by [**sherpa-onnx**](https://github.com/k2-fsa/sherpa-onnx) (Next-gen Kaldi).
-- The SenseVoice inference code is a vendored subset of [**transcribe-rs**](https://crates.io/crates/transcribe-rs) (MIT), ported back to an older ONNX Runtime — see `frontend/src-tauri/src/sensevoice_engine/vendor/`.
+- [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes)，作者 Zackriya Solutions —— 这个分支的全部基础。
+- [**SenseVoice**](https://github.com/FunAudioLLM/SenseVoice)，来自阿里通义实验室，由 [**sherpa-onnx**](https://github.com/k2-fsa/sherpa-onnx)（新一代 Kaldi）导出为 ONNX。
+- SenseVoice 的推理代码是 [**transcribe-rs**](https://crates.io/crates/transcribe-rs)（MIT）的一个 vendored 子集，回移植到了较旧版本的 ONNX Runtime —— 见 `frontend/src-tauri/src/sensevoice_engine/vendor/`。
 
-MIT, like upstream.
+MIT 协议，与上游一致。
