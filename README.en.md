@@ -1,6 +1,24 @@
+<div align="center">
+
 # Meetily-ZH
 
+**A Chinese-first AI meeting assistant · Runs entirely on your own machine**
+
 **English** · [中文](README.md)
+
+[![Release](https://img.shields.io/github/v/release/kevinyuan/meetily-zh?color=brightgreen)](https://github.com/kevinyuan/meetily-zh/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kevinyuan/meetily-zh/total?color=blue)](https://github.com/kevinyuan/meetily-zh/releases)
+[![Stars](https://img.shields.io/github/stars/kevinyuan/meetily-zh?style=flat&color=yellow)](https://github.com/kevinyuan/meetily-zh/stargazers)
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE.md)
+[![Platform](https://img.shields.io/badge/Platform-macOS_(Apple_Silicon)-lightgrey?logo=apple)](#install--macos)
+[![Engine](https://img.shields.io/badge/Engine-SenseVoice-orange)](https://github.com/FunAudioLLM/SenseVoice)
+[![Built with](https://img.shields.io/badge/Tauri_+_Rust-24C8B8?logo=tauri&logoColor=white)](https://tauri.app)
+
+**No cloud · No audio leaves the device · No subscription**
+
+</div>
+
+---
 
 A Chinese-first fork of [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) — a privacy-first AI meeting assistant that records, transcribes and summarises meetings **entirely on your own machine**. No cloud, no audio leaving the device.
 

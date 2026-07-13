@@ -1,6 +1,24 @@
+<div align="center">
+
 # Meetily-ZH
 
+**中文优先的 AI 会议助手 · 全程本地运行**
+
 [English](README.en.md) · **中文**
+
+[![Release](https://img.shields.io/github/v/release/kevinyuan/meetily-zh?color=brightgreen&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/kevinyuan/meetily-zh/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kevinyuan/meetily-zh/total?color=blue&label=%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://github.com/kevinyuan/meetily-zh/releases)
+[![Stars](https://img.shields.io/github/stars/kevinyuan/meetily-zh?style=flat&color=yellow)](https://github.com/kevinyuan/meetily-zh/stargazers)
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE.md)
+[![Platform](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-macOS_(Apple_Silicon)-lightgrey?logo=apple)](#安装--macos)
+[![Engine](https://img.shields.io/badge/%E8%BD%AC%E5%BD%95%E5%BC%95%E6%93%8E-SenseVoice-orange)](https://github.com/FunAudioLLM/SenseVoice)
+[![Built with](https://img.shields.io/badge/Tauri_+_Rust-24C8B8?logo=tauri&logoColor=white)](https://tauri.app)
+
+**不上云 · 音频不出设备 · 无需订阅**
+
+</div>
+
+---
 
 [**Meetily**](https://github.com/Zackriya-Solutions/meeting-minutes) 的中文优先分支 —— 一个隐私优先的 AI 会议助手，录音、转录、生成摘要**全部在你自己的电脑上完成**。不上云，音频不出设备。
 
