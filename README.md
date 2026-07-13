@@ -6,6 +6,7 @@
 
 [English](README.en.md) · **中文**
 
+[![Build](https://github.com/kevinyuan/meetily-zh/actions/workflows/build-macos.yml/badge.svg)](https://github.com/kevinyuan/meetily-zh/actions/workflows/build-macos.yml)
 [![Release](https://img.shields.io/github/v/release/kevinyuan/meetily-zh?color=brightgreen&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/kevinyuan/meetily-zh/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/kevinyuan/meetily-zh/total?color=blue&label=%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://github.com/kevinyuan/meetily-zh/releases)
 [![Stars](https://img.shields.io/github/stars/kevinyuan/meetily-zh?style=flat&color=yellow)](https://github.com/kevinyuan/meetily-zh/stargazers)
