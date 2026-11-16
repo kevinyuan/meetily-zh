@@ -33,7 +33,7 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={doodleSrc}
-                  alt={t('recordingArea.nav.logoAlt')}
+                  alt="Meetily"
                   width={40}
                   height={40}
                   className="w-10 h-10 object-contain"
