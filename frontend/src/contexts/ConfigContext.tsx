@@ -6,6 +6,7 @@ import { SelectedDevices } from '@/components/DeviceSelection';
 import { configService, ModelConfig } from '@/services/configService';
 import { invoke } from '@tauri-apps/api/core';
 import Analytics from '@/lib/analytics';
+import { toast } from 'sonner';
 import { BetaFeatures, BetaFeatureKey, loadBetaFeatures, saveBetaFeatures } from '@/types/betaFeatures';
 import { useTranslation } from 'react-i18next';
 import { resolveTranscriptionLanguagePreference } from '@/lib/model-languages';
@@ -48,6 +49,7 @@ interface ConfigContextType {
   // Model configuration
   modelConfig: ModelConfig;
   setModelConfig: (config: ModelConfig | ((prev: ModelConfig) => ModelConfig)) => void;
+  isModelConfigLoading: boolean;
 
   // Transcript model configuration
   transcriptModelConfig: TranscriptModelProps;
@@ -109,6 +111,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     whisperModel: 'large-v3',
     ollamaEndpoint: null
   });
+  const [isModelConfigLoading, setIsModelConfigLoading] = useState(true);
+
 
   // Transcript model configuration state
   const [transcriptModelConfig, setTranscriptModelConfig] = useState<TranscriptModelProps>({
@@ -297,6 +301,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Failed to fetch saved model config in ConfigContext:', error);
+      } finally {
+        setIsModelConfigLoading(false);
       }
     };
     fetchModelConfig();
@@ -366,7 +372,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           console.log('Loaded device preferences:', prefs);
         }
       } catch (error) {
-        console.log('No device preferences found or failed to load:', error);
+        console.error('Failed to load device preferences:', error);
+        toast.error('Could not load saved recording devices', { description: String(error) });
       }
     };
     loadDevicePreferences();
@@ -496,6 +503,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const value: ConfigContextType = useMemo(() => ({
     modelConfig,
     setModelConfig,
+    isModelConfigLoading,
     isAutoSummary,
     toggleIsAutoSummary,
     providerApiKeys,
@@ -520,6 +528,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     updateNotificationSettings,
   }), [
     modelConfig,
+    isModelConfigLoading,
     isAutoSummary,
     toggleIsAutoSummary,
     providerApiKeys,

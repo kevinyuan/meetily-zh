@@ -166,6 +166,7 @@
         "title": "Transcription model not ready",
         "description": "Please download a transcription model before recording."
       },
+      "startTimedOut": "Recording start timed out — please try again",
       "modelSetupRequired": "Transcription model setup required",
       "summaryLanguageApplyFailed": {
         "title": "Could not apply default summary language",

@@ -135,6 +135,8 @@ fn build_vad_config(redemption_time_ms: u32) -> VadConfig {
 
 impl ContinuousVadProcessor {
     pub fn new(input_sample_rate: u32, redemption_time_ms: u32) -> Result<Self> {
+        crate::ensure_onnx_runtime_available()?;
+
         let config = build_vad_config(redemption_time_ms);
 
         debug!(
@@ -262,12 +264,21 @@ impl ContinuousVadProcessor {
             self.buffer.clear();
 
             // Pad to chunk size if needed
+            let real_len = remaining.len();
             let mut padded_chunk = remaining;
             if padded_chunk.len() < self.chunk_size {
                 padded_chunk.resize(self.chunk_size, 0.0);
             }
 
+            let padding = padded_chunk.len() - real_len;
             self.process_chunk(&padded_chunk)?;
+
+            // The zero padding only exists to fill the VAD frame; it is not audio, so it
+            // must not leak into the final segment's samples or its end timestamp.
+            if self.in_speech {
+                let keep = self.current_speech.len().saturating_sub(padding);
+                self.current_speech.truncate(keep);
+            }
         }
 
         // Force end any ongoing speech

@@ -14,7 +14,7 @@ import { getSummaryModelSizeLabel, getSummaryModelSizeMb } from '@/lib/onboardin
 // Korean and Cantonese, where Parakeet is English-only.
 const TRANSCRIPTION_MODEL = 'sense-voice-small-int8';
 
-type DownloadStatus = 'waiting' | 'downloading' | 'completed' | 'error';
+type DownloadStatus = 'waiting' | 'downloading' | 'completed' | 'cancelled' | 'error';
 
 interface DownloadState {
   status: DownloadStatus;
@@ -202,9 +202,24 @@ export function DownloadProgressStep() {
       total_mb?: number;
       speed_mbps?: number;
       status?: string;
-    }>('sensevoice-model-download-progress', (event) => {
-      const { modelName, progress, downloaded_mb, total_mb, speed_mbps, status } = event.payload;
-      if (modelName === TRANSCRIPTION_MODEL) {
+    }>(
+      'sensevoice-model-download-progress',
+      (event) => {
+        const { modelName, progress, downloaded_mb, total_mb, speed_mbps, status } = event.payload;
+        if (modelName !== TRANSCRIPTION_MODEL) return;
+
+        if (status === 'cancelled') {
+          setTranscriptionModelState((prev) => ({
+            ...prev,
+            status: 'cancelled',
+            progress: 0,
+            downloadedMb: 0,
+            speedMbps: 0,
+          }));
+          setTranscriptionModelDownloaded(false);
+          return;
+        }
+
         setTranscriptionModelState((prev) => ({
           ...prev,
           status: status === 'completed' ? 'completed' : 'downloading',
@@ -218,7 +233,7 @@ export function DownloadProgressStep() {
           setTranscriptionModelDownloaded(true);
         }
       }
-    });
+    );
 
     const unlistenComplete = listen<{ modelName: string }>(
       'sensevoice-model-download-complete',
@@ -331,8 +346,8 @@ export function DownloadProgressStep() {
   const handleContinue = async () => {
     // Verify actual model availability (catches state drift)
     try {
-      await invoke('parakeet_init');
-      const actuallyAvailable = await invoke<boolean>('parakeet_has_available_models');
+      await invoke('sensevoice_init');
+      const actuallyAvailable = await invoke<boolean>('sensevoice_has_available_models');
 
       if (actuallyAvailable && !transcriptionModelDownloaded) {
         console.log('[DownloadProgressStep] Model available but state not updated');
@@ -342,7 +357,10 @@ export function DownloadProgressStep() {
           status: 'completed',
           progress: 100,
         }));
-      } else if (!actuallyAvailable && transcriptionModelState.status === 'error') {
+      } else if (
+        !actuallyAvailable &&
+        (transcriptionModelState.status === 'error' || transcriptionModelState.status === 'cancelled')
+      ) {
         toast.error(t('onboardingArea.download.toasts.transcriptionRequiredTitle'), {
           description: t('onboardingArea.download.toasts.transcriptionRequiredDescription'),
         });
@@ -421,6 +439,9 @@ export function DownloadProgressStep() {
           {state.status === 'error' && (
             <span className="text-sm text-red-500">{t('onboardingArea.download.failed')}</span>
           )}
+          {state.status === 'cancelled' && (
+            <span className="text-sm text-gray-500">Cancelled</span>
+          )}
         </div>
       </div>
 
@@ -451,10 +472,14 @@ export function DownloadProgressStep() {
         </div>
       )}
 
-      {state.status === 'error' && state.error && (
+      {(state.status === 'error' || state.status === 'cancelled') && (
         <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600 font-medium">{t('onboardingArea.download.errorTitle')}</p>
-          <p className="text-xs text-red-500 mt-1">{state.error}</p>
+          <p className="text-sm text-red-600 font-medium">
+            {state.status === 'cancelled'
+              ? t('onboardingArea.download.cancelledTitle')
+              : t('onboardingArea.download.errorTitle')}
+          </p>
+          {state.error && <p className="text-xs text-red-500 mt-1">{state.error}</p>}
           {onRetry && (
             <button
               onClick={onRetry}

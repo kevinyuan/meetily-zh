@@ -19,7 +19,9 @@
       "unknownError": "Unknown error",
       "accuracy": "{{accuracy}} accuracy",
       "processing": "{{speed}} processing",
-      "usingForTranscription": "Using {{model}} for transcription"
+      "usingForTranscription": "Using {{model}} for transcription",
+      "cancelling": "Cancelling…",
+      "cancellationRequested": "Cancellation requested"
     },
     "accuracyLabel": {
       "High": "High",
@@ -46,7 +48,10 @@
       "deleted": "{{model}} deleted",
       "deletedDescription": "Model removed to free up space",
       "deleteFailedDescription": "Delete failed",
-      "downloadFailedDescription": "Download failed"
+      "downloadFailedDescription": "Download failed",
+      "cancelPendingTitle": "Cancelling {{model}}...",
+      "cancelPendingDescription": "The download is still shutting down. Retry will be available when cleanup completes.",
+      "listenFailed": "Failed to listen for model updates"
     },
     "whisper": {
       "advancedModels": "Advanced Models",

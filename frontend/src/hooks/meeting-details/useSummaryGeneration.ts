@@ -1,18 +1,24 @@
-import { useState, useCallback } from 'react';
-import { Transcript, Summary } from '@/types';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  CancelSummaryResponse,
+  MeetingSummary,
+  ProcessTranscriptResponse,
+  SummaryProcessResponse,
+  Transcript,
+} from '@/types';
 import { ModelConfig } from '@/components/ModelSettingsModal';
-import { CurrentMeeting, useSidebar } from '@/components/Sidebar/SidebarProvider';
+import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import i18n from '@/i18n';
 import Analytics from '@/lib/analytics';
-import { isOllamaNotInstalledError } from '@/lib/utils';
-import { BuiltInModelInfo } from '@/lib/builtin-ai';
+
 import {
   readMeetingSummaryLanguage,
   resolvePinnedSummaryLanguageDefault,
 } from '@/lib/summary-language-preferences';
 import { uiLanguageToEngineCode } from '@/i18n/languages';
+import { parseSummaryContent, readSummaryMetadata } from '@/lib/summary-content';
 
 /**
  * The language a summary is written in.
@@ -44,19 +50,33 @@ async function resolveSummaryLanguage(meetingId: string): Promise<string | null>
 
 type SummaryStatus = 'idle' | 'processing' | 'summarizing' | 'regenerating' | 'completed' | 'error';
 
+function restoredSummaryStatus(response?: SummaryProcessResponse | null): SummaryStatus {
+  if (!response) return 'idle';
+  if (response.status === 'pending' || response.status === 'processing') return 'processing';
+  if (response.status === 'error' || response.status === 'failed') return 'error';
+  if (parseSummaryContent(response.data)) return 'completed';
+  if (response.status === 'completed') return 'error';
+  return 'idle';
+}
+
 interface UseSummaryGenerationProps {
-  meeting: any;
+  initialSummary?: SummaryProcessResponse | null;
+  meeting: {
+    id: string;
+    created_at: string;
+  };
   transcripts: Transcript[];
   modelConfig: ModelConfig;
   isModelConfigLoading: boolean;
   selectedTemplate: string;
   onMeetingUpdated?: () => Promise<void>;
   updateMeetingTitle: (title: string) => void;
-  setAiSummary: (summary: Summary | null) => void;
+  setAiSummary: (summary: MeetingSummary | null) => void;
   onOpenModelSettings?: () => void;
 }
 
 export function useSummaryGeneration({
+  initialSummary,
   meeting,
   transcripts,
   modelConfig,
@@ -67,12 +87,27 @@ export function useSummaryGeneration({
   setAiSummary,
   onOpenModelSettings,
 }: UseSummaryGenerationProps) {
-  const [summaryStatus, setSummaryStatus] = useState<SummaryStatus>('idle');
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
+  const restored = initialSummary?.meeting_id === meeting.id ? initialSummary : null;
+  const [summaryStatus, setSummaryStatus] = useState<SummaryStatus>(() => restoredSummaryStatus(restored));
+  const [summaryError, setSummaryError] = useState<string | null>(() =>
+    restoredSummaryStatus(restored) === 'error'
+      ? restored?.error || i18n.t('meetingArea.toasts.summaryFailedRetry')
+      : null,
+  );
+  const mountedRef = useRef(true);
+  const visibleMeetingIdRef = useRef(meeting.id);
+  visibleMeetingIdRef.current = meeting.id;
+  const generationIdRef = useRef(0);
+  const activeProcessIdRef = useRef<string | null>(null);
+  const trackedAttemptRef = useRef<{
+    generationId: number;
+    startedAt: number;
+    provider: ModelConfig['provider'];
+    model: ModelConfig['model'];
+    finished: boolean;
+  } | null>(null);
   const { startSummaryPolling, stopSummaryPolling } = useSidebar();
 
-  // Helper to get status message
   const getSummaryStatusMessage = useCallback((status: SummaryStatus) => {
     switch (status) {
       case 'processing':
@@ -90,7 +125,182 @@ export function useSummaryGeneration({
     }
   }, []);
 
-  // Unified summary processing logic
+  const finishGeneration = useCallback(async (
+    generationId: number,
+    outcome: 'ok' | 'fallback' | 'generation_error' | 'empty_result' | 'cancelled'
+  ) => {
+    const attempt = trackedAttemptRef.current;
+    if (!attempt || attempt.generationId !== generationId || attempt.finished) {
+      return;
+    }
+    attempt.finished = true;
+    await Analytics.trackSummaryGenerationCompleted(
+      attempt.provider,
+      attempt.model,
+      outcome === 'ok' || outcome === 'fallback',
+      (Date.now() - attempt.startedAt) / 1000,
+      outcome === 'ok' ? undefined : outcome,
+    );
+  }, []);
+
+  const failGeneration = useCallback(async (
+    generationId: number,
+    isRegeneration: boolean,
+    message: string,
+    outcome: 'generation_error' | 'empty_result' = 'generation_error',
+  ) => {
+    if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id || generationId !== generationIdRef.current) {
+      return;
+    }
+    activeProcessIdRef.current = null;
+    setSummaryError(message);
+    setSummaryStatus('error');
+    toast.error(
+      isRegeneration
+        ? i18n.t('meetingArea.toasts.regenerateFailed')
+        : i18n.t('meetingArea.toasts.generateFailed'),
+      { description: message },
+    );
+    await finishGeneration(generationId, outcome);
+  }, [finishGeneration, meeting.id]);
+
+  const handlePollingResult = useCallback(async (
+    pollingResult: SummaryProcessResponse,
+    generationId: number,
+    isRegeneration: boolean,
+  ) => {
+    if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id || generationId !== generationIdRef.current) {
+      return;
+    }
+    if (pollingResult.status === 'cancelled') {
+      let existing: SummaryProcessResponse;
+      try {
+        existing = await invokeTauri<SummaryProcessResponse>('api_get_summary', {
+          meetingId: meeting.id,
+        });
+      } catch (error) {
+        console.error('Failed to reload summary after cancellation:', error);
+        await failGeneration(generationId, isRegeneration,
+          i18n.t('meetingArea.toasts.cancelReloadFailed'));
+        return;
+      }
+      if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id || generationId !== generationIdRef.current) {
+        return;
+      }
+      const restoredSummary = parseSummaryContent(existing.data);
+      setAiSummary(restoredSummary);
+      setSummaryStatus(restoredSummary ? 'completed' : 'idle');
+      setSummaryError(null);
+      activeProcessIdRef.current = null;
+      await finishGeneration(generationId, 'cancelled');
+      return;
+    }
+
+    if (pollingResult.status === 'error' || pollingResult.status === 'failed') {
+      const errorMessage = pollingResult.error
+        || `Summary ${isRegeneration ? 'regeneration' : 'generation'} failed`;
+      if (isRegeneration) {
+        let existing: SummaryProcessResponse;
+        try {
+          existing = await invokeTauri<SummaryProcessResponse>('api_get_summary', {
+            meetingId: meeting.id,
+          });
+        } catch (error) {
+          console.error('Failed to reload previous summary after generation failure:', error);
+          await failGeneration(generationId, isRegeneration,
+            `${errorMessage}. The saved summary could not be reloaded. Please reopen this meeting.`);
+          return;
+        }
+        if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id || generationId !== generationIdRef.current) {
+          return;
+        }
+        const restoredSummary = parseSummaryContent(existing.data);
+        if (restoredSummary) {
+          setAiSummary(restoredSummary);
+          setSummaryStatus('completed');
+          setSummaryError(null);
+          toast.error(i18n.t('meetingArea.toasts.regenerateFailed'), {
+            description: i18n.t('meetingArea.toasts.regenerateFailedRestored', { error: errorMessage }),
+          });
+          activeProcessIdRef.current = null;
+          await finishGeneration(generationId, 'generation_error');
+          return;
+        }
+      }
+      await failGeneration(generationId, isRegeneration, errorMessage);
+      return;
+    }
+
+    if (pollingResult.status === 'completed') {
+      const summary = parseSummaryContent(pollingResult.data);
+      if (!summary) {
+        await failGeneration(generationId, isRegeneration,
+          i18n.t('meetingArea.toasts.completedNoContent'),
+          'empty_result',
+        );
+        return;
+      }
+      const metadata = readSummaryMetadata(pollingResult.data);
+      const meetingName = metadata.meetingName || pollingResult.meetingName;
+      if (meetingName) {
+        updateMeetingTitle(meetingName);
+      }
+      setAiSummary(summary);
+      setSummaryStatus('completed');
+      activeProcessIdRef.current = null;
+      setSummaryError(null);
+      if (metadata.normalizationFallback) {
+        toast.warning(i18n.t('meetingArea.toasts.fallbackTitle'), {
+          description: i18n.t('meetingArea.toasts.fallbackDescription'),
+        });
+      } else {
+        toast.success(i18n.t('meetingArea.toasts.summarySuccess'), {
+          description: metadata.reasoningStripped
+            ? i18n.t('meetingArea.toasts.summarySuccessReasoningStripped')
+            : i18n.t('meetingArea.toasts.summarySuccessDescription'),
+          duration: 4000,
+        });
+      }
+      if (meetingName && onMeetingUpdated) {
+        await onMeetingUpdated();
+      }
+      await finishGeneration(
+        generationId,
+        metadata.normalizationFallback ? 'fallback' : 'ok',
+      );
+    }
+  }, [failGeneration, finishGeneration, meeting.id, onMeetingUpdated, setAiSummary, updateMeetingTitle]);
+
+  // Keep polling attached across ordinary rerenders without retaining stale view callbacks.
+  const pollingResultRef = useRef(handlePollingResult);
+  pollingResultRef.current = handlePollingResult;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (activeProcessIdRef.current) {
+        stopSummaryPolling(meeting.id, activeProcessIdRef.current);
+      }
+    };
+  }, [meeting.id, stopSummaryPolling]);
+
+  useEffect(() => {
+    if (!initialSummary || initialSummary.meeting_id !== meeting.id) return;
+    const status = restoredSummaryStatus(initialSummary);
+    setSummaryStatus(status);
+    setSummaryError(status === 'error'
+      ? initialSummary.error || i18n.t('meetingArea.toasts.summaryFailedRetry')
+      : null);
+    if (status !== 'processing' || !initialSummary.start) return;
+
+    const generationId = ++generationIdRef.current;
+    activeProcessIdRef.current = initialSummary.start;
+    const isRegeneration = !!parseSummaryContent(initialSummary.data);
+    startSummaryPolling(meeting.id, initialSummary.start, result =>
+      pollingResultRef.current(result, generationId, isRegeneration));
+  }, [initialSummary, meeting.id, startSummaryPolling]);
+
   const processSummary = useCallback(async ({
     transcriptText,
     transcriptTexts,
@@ -102,32 +312,39 @@ export function useSummaryGeneration({
     customPrompt?: string;
     isRegeneration?: boolean;
   }) => {
+    const previousAttempt = trackedAttemptRef.current;
+    if (previousAttempt && !previousAttempt.finished) {
+      await finishGeneration(previousAttempt.generationId, 'cancelled');
+    }
+
+    const generationId = ++generationIdRef.current;
+    activeProcessIdRef.current = null;
     setSummaryStatus(isRegeneration ? 'regenerating' : 'processing');
     setSummaryError(null);
 
     try {
       if (!transcriptText.trim()) {
-        throw new Error(i18n.t('meetingArea.toasts.noTranscriptText'));
+        await failGeneration(generationId, isRegeneration, i18n.t('meetingArea.toasts.noTranscriptText'), 'empty_result');
+        return;
       }
 
-      console.log('Processing transcript with template:', selectedTemplate);
-
-      // Calculate time since recording
-      const timeSinceRecording = (Date.now() - new Date(meeting.created_at).getTime()) / 60000; // minutes
-
-      // Track summary generation started
+      const timeSinceRecording = (Date.now() - new Date(meeting.created_at).getTime()) / 60000;
+      trackedAttemptRef.current = {
+        generationId,
+        startedAt: Date.now(),
+        provider: modelConfig.provider,
+        model: modelConfig.model,
+        finished: false,
+      };
       await Analytics.trackSummaryGenerationStarted(
         modelConfig.provider,
         modelConfig.model,
         transcriptText.length,
-        timeSinceRecording
+        timeSinceRecording,
       );
-
-      // Track custom prompt usage if present
-      if (customPrompt.trim().length > 0) {
+      if (customPrompt.trim()) {
         await Analytics.trackCustomPromptUsed(customPrompt.trim().length);
       }
-
       // No "generating…" toast: summaryStatus drives a visible in-panel status message
       // and the button flips to "Stop", so the toast was pure narration.
       console.log(
@@ -136,269 +353,45 @@ export function useSummaryGeneration({
 
       // Explicit per-meeting choice, else the pinned default, else the display language.
       const summaryLanguage = await resolveSummaryLanguage(meeting.id);
+      if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id || generationId !== generationIdRef.current) {
+        return;
+      }
 
-      // Process transcript and get process_id
-      const result = await invokeTauri('api_process_transcript', {
+      const result = await invokeTauri<ProcessTranscriptResponse>('api_process_transcript', {
         text: transcriptText,
         model: modelConfig.provider,
         modelName: modelConfig.model,
         meetingId: meeting.id,
         chunkSize: 40000,
         overlap: 1000,
-        customPrompt: customPrompt,
+        customPrompt,
         templateId: selectedTemplate,
         summaryLanguage,
-      }) as any;
-
-      const process_id = result.process_id;
-      console.log('Process ID:', process_id);
-
-      // Start global polling via context
-      startSummaryPolling(meeting.id, process_id, async (pollingResult) => {
-        console.log('Summary status:', pollingResult);
-
-        // Handle cancellation
-        if (pollingResult.status === 'cancelled') {
-          console.log('Summary generation was cancelled');
-
-          // Reload summary from database (backend has already restored from backup)
-          try {
-            const existingSummary = await invokeTauri('api_get_summary', {
-              meetingId: meeting.id
-            }) as any;
-
-            if (existingSummary?.data) {
-              console.log('Restored previous summary after cancellation');
-              setAiSummary(existingSummary.data);
-              setSummaryStatus('completed');
-            } else {
-              setSummaryStatus('idle');
-            }
-          } catch (error) {
-            console.error('Failed to reload summary after cancellation:', error);
-            setSummaryStatus('idle');
-          }
-
-          setSummaryError(null);
-          return;
-        }
-
-        // Handle errors
-        if (pollingResult.status === 'error' || pollingResult.status === 'failed') {
-          console.error('Backend returned error:', pollingResult.error);
-          const errorMessage = pollingResult.error || (isRegeneration
-            ? i18n.t('meetingArea.toasts.regenerationFailedFallback')
-            : i18n.t('meetingArea.toasts.generationFailedFallback'));
-
-          // If this was a regeneration, try to restore previous summary from database
-          if (isRegeneration) {
-            try {
-              const existingSummary = await invokeTauri('api_get_summary', {
-                meetingId: meeting.id
-              }) as any;
-
-              if (existingSummary?.data) {
-                console.log('Restored previous summary after regeneration failure');
-                setAiSummary(existingSummary.data);
-                setSummaryStatus('completed');
-                setSummaryError(null);
-
-                // Show error toast with restoration message
-                toast.error(i18n.t('meetingArea.toasts.regenerateFailed'), {
-                  description: i18n.t('meetingArea.toasts.regenerateFailedRestored', { error: errorMessage }),
-                });
-
-                await Analytics.trackSummaryGenerationCompleted(
-                  modelConfig.provider,
-                  modelConfig.model,
-                  false,
-                  undefined,
-                  errorMessage
-                );
-                return;
-              }
-            } catch (error) {
-              console.error('Failed to reload summary after error:', error);
-            }
-          }
-
-          // Continue with normal error handling if not regeneration or reload failed
-          setSummaryError(errorMessage);
-          setSummaryStatus('error');
-
-          // Check if this is a "model is required" error
-          const isModelRequiredError = errorMessage.includes('model is required') ||
-            errorMessage.includes('"model":"required"') ||
-            errorMessage.toLowerCase().includes('model') && errorMessage.toLowerCase().includes('required');
-
-          // Show error toast
-          toast.error(
-            isRegeneration
-              ? i18n.t('meetingArea.toasts.regenerateFailed')
-              : i18n.t('meetingArea.toasts.generateFailed'),
-            {
-              description: errorMessage.includes('Connection refused')
-                ? i18n.t('meetingArea.toasts.connectionRefused')
-                : errorMessage,
-            }
-          );
-
-          // Auto-open model settings modal if model is missing
-          if (isModelRequiredError && onOpenModelSettings) {
-            console.log('🔧 Model required error detected, opening model settings...');
-            onOpenModelSettings();
-          }
-
-          await Analytics.trackSummaryGenerationCompleted(
-            modelConfig.provider,
-            modelConfig.model,
-            false,
-            undefined,
-            errorMessage
-          );
-          return;
-        }
-
-        // Handle successful completion
-        if (pollingResult.status === 'completed' && pollingResult.data) {
-          console.log('Summary generation completed:', pollingResult.data);
-
-          // Update meeting title if available
-          const meetingName = pollingResult.data.MeetingName || pollingResult.meetingName;
-          if (meetingName) {
-            updateMeetingTitle(meetingName);
-          }
-
-          // Check if backend returned markdown format (new flow)
-          if (pollingResult.data.markdown) {
-            console.log('Received markdown format from backend');
-            setAiSummary({ markdown: pollingResult.data.markdown } as any);
-            setSummaryStatus('completed');
-
-            // Show success toast
-            toast.success(i18n.t('meetingArea.toasts.summarySuccess'), {
-              description: i18n.t('meetingArea.toasts.summarySuccessDescription'),
-              duration: 4000,
-            });
-
-            if (meetingName && onMeetingUpdated) {
-              await onMeetingUpdated();
-            }
-
-            await Analytics.trackSummaryGenerationCompleted(
-              modelConfig.provider,
-              modelConfig.model,
-              true
-            );
-            return;
-          }
-
-          // Legacy format handling
-          const summarySections = Object.entries(pollingResult.data).filter(([key]) => key !== 'MeetingName');
-          const allEmpty = summarySections.every(([, section]) => !(section as any).blocks || (section as any).blocks.length === 0);
-
-          if (allEmpty) {
-            console.error('Summary completed but all sections empty');
-            setSummaryError(i18n.t('meetingArea.toasts.emptySummary'));
-            setSummaryStatus('error');
-
-            await Analytics.trackSummaryGenerationCompleted(
-              modelConfig.provider,
-              modelConfig.model,
-              false,
-              undefined,
-              'Empty summary generated'
-            );
-            return;
-          }
-
-          // Remove MeetingName from data before formatting
-          const { MeetingName, ...summaryData } = pollingResult.data;
-
-          // Format legacy summary data
-          const formattedSummary: Summary = {};
-          const sectionKeys = pollingResult.data._section_order || Object.keys(summaryData);
-
-          for (const key of sectionKeys) {
-            try {
-              const section = summaryData[key];
-              if (section && typeof section === 'object' && 'title' in section && 'blocks' in section) {
-                const typedSection = section as { title?: string; blocks?: any[] };
-
-                if (Array.isArray(typedSection.blocks)) {
-                  formattedSummary[key] = {
-                    title: typedSection.title || key,
-                    blocks: typedSection.blocks.map((block: any) => ({
-                      ...block,
-                      color: 'default',
-                      content: block?.content?.trim() || ''
-                    }))
-                  };
-                } else {
-                  formattedSummary[key] = {
-                    title: typedSection.title || key,
-                    blocks: []
-                  };
-                }
-              }
-            } catch (error) {
-              console.warn(`Error processing section ${key}:`, error);
-            }
-          }
-
-          setAiSummary(formattedSummary);
-          setSummaryStatus('completed');
-
-          // Show success toast
-          toast.success(i18n.t('meetingArea.toasts.summarySuccess'), {
-            description: i18n.t('meetingArea.toasts.summarySuccessDescription'),
-            duration: 4000,
-          });
-
-          await Analytics.trackSummaryGenerationCompleted(
-            modelConfig.provider,
-            modelConfig.model,
-            true
-          );
-
-          if (meetingName && onMeetingUpdated) {
-            await onMeetingUpdated();
-          }
-        }
       });
+      const processId = result.process_id;
+      if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id) return;
+      if (generationId !== generationIdRef.current) {
+        await invokeTauri('api_cancel_summary', { meetingId: meeting.id, processId }).catch(() => {});
+        return;
+      }
+      activeProcessIdRef.current = processId;
+
+      startSummaryPolling(meeting.id, processId, result =>
+        pollingResultRef.current(result, generationId, isRegeneration));
     } catch (error) {
-      console.error(`Failed to ${isRegeneration ? 'regenerate' : 'generate'} summary:`, error);
-      const errorMessage = error instanceof Error ? error.message : i18n.t('meetingArea.toasts.unknownError');
-      setSummaryError(errorMessage);
-      setSummaryStatus('error');
-      // Note: We don't clear the summary here because the backend has already restored from backup
-
-      toast.error(
-        isRegeneration
-          ? i18n.t('meetingArea.toasts.regenerateFailed')
-          : i18n.t('meetingArea.toasts.generateFailed'),
-        {
-          description: errorMessage,
-        }
-      );
-
-      await Analytics.trackSummaryGenerationCompleted(
-        modelConfig.provider,
-        modelConfig.model,
-        false,
-        undefined,
-        errorMessage
-      );
+      await failGeneration(generationId, isRegeneration, error instanceof Error ? error.message : i18n.t('meetingArea.toasts.generationFailedShort'));
     }
   }, [
-    meeting.id,
+    failGeneration,
+    finishGeneration,
     meeting.created_at,
+    meeting.id,
     modelConfig,
-    selectedTemplate,
-    startSummaryPolling,
-    setAiSummary,
-    updateMeetingTitle,
     onMeetingUpdated,
+    selectedTemplate,
+    setAiSummary,
+    startSummaryPolling,
+    updateMeetingTitle,
   ]);
 
   // Helper function to fetch ALL transcripts for summary generation
@@ -442,183 +435,80 @@ export function useSummaryGeneration({
         return fallbackTimestamp;
       }
       const totalSecs = Math.floor(seconds);
-      const mins = Math.floor(totalSecs / 60);
-      const secs = totalSecs % 60;
-      return `[${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
+      return `[${Math.floor(totalSecs / 60).toString().padStart(2, '0')}:${(totalSecs % 60).toString().padStart(2, '0')}]`;
     };
 
     return {
       transcriptText: allTranscripts
-        .map(t => `${formatTime(t.audio_start_time, t.timestamp)} ${t.text}`)
+        .map((transcript) => `${formatTime(transcript.audio_start_time, transcript.timestamp)} ${transcript.text}`)
         .join('\n'),
-      transcriptTexts: allTranscripts.map(t => t.text),
+      transcriptTexts: allTranscripts.map((transcript) => transcript.text),
     };
   }, []);
 
-  // Public API: Generate summary from transcripts
+  const showPreflightError = useCallback((message: string) => {
+    setSummaryError(message);
+    setSummaryStatus('error');
+    toast.error(message);
+  }, []);
+
   const handleGenerateSummary = useCallback(async (customPrompt: string = '') => {
-    // Check if model config is still loading
     if (isModelConfigLoading) {
       console.log('⏳ Model configuration is still loading, please wait...');
       return;
     }
-
-    // CHANGE: Fetch ALL transcripts from database, not from pagination state
-    console.log('📊 Fetching all transcripts for summary generation...');
     const allTranscripts = await fetchAllTranscripts(meeting.id);
-
     if (!allTranscripts.length) {
-      console.log('No transcripts available for summary');
-      toast.error(i18n.t('meetingArea.toasts.noTranscripts'));
+      showPreflightError(i18n.t('meetingArea.toasts.noTranscripts'));
       return;
     }
 
-    console.log(`✅ Proceeding with ${allTranscripts.length} transcripts`);
-
-    console.log('🚀 Starting summary generation with config:', {
-      provider: modelConfig.provider,
-      model: modelConfig.model,
-      template: selectedTemplate
-    });
-
-    // Check if Ollama provider has models available
-    if (modelConfig.provider === 'ollama') {
-      try {
-        const endpoint = modelConfig.ollamaEndpoint || null;
-        const models = await invokeTauri('get_ollama_models', { endpoint }) as any[];
-
-        if (!models || models.length === 0) {
-          toast.error(
-            i18n.t('meetingArea.models.ollamaNoModelsSettings'),
-            { duration: 5000 }
-          );
+    try {
+      if (modelConfig.provider === 'ollama') {
+        const models = await invokeTauri<unknown[]>('get_ollama_models', {
+          endpoint: modelConfig.ollamaEndpoint || null,
+        });
+        if (models.length === 0) {
+          showPreflightError(i18n.t('meetingArea.models.ollamaNoModelsSettings'));
           return;
         }
-      } catch (error) {
-        console.error('Error checking Ollama models:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-
-        if (isOllamaNotInstalledError(errorMessage)) {
-          // Ollama is not installed - show specific message with download link
-          toast.error(
-            i18n.t('meetingArea.models.ollamaNotInstalledTitle'),
-            {
-              description: i18n.t('meetingArea.models.ollamaNotInstalledDescription'),
-              duration: 7000,
-              action: {
-                label: i18n.t('meetingArea.models.ollamaDownloadAction'),
-                onClick: () => invokeTauri('open_external_url', { url: 'https://ollama.com/download' })
-              }
-            }
-          );
-        } else {
-          // Other error - generic message
-          toast.error(
-            i18n.t('meetingArea.models.ollamaCheckFailedSettings'),
-            { duration: 5000 }
-          );
-        }
-        return;
       }
-    }
-
-    // Check if built-in AI provider has models available
-    if (modelConfig.provider === 'builtin-ai') {
-      try {
-        const selectedModel = modelConfig.model;
-
-        if (!selectedModel) {
-          toast.error(i18n.t('meetingArea.models.noBuiltInSelectedTitle'), {
-            description: i18n.t('meetingArea.models.noBuiltInSelectedDescription'),
-            duration: 5000,
-          });
-          if (onOpenModelSettings) {
-            onOpenModelSettings();
-          }
+      if (modelConfig.provider === 'builtin-ai') {
+        if (!modelConfig.model) {
+          showPreflightError(i18n.t('meetingArea.models.noBuiltInSelectedSettings'));
+          onOpenModelSettings?.();
           return;
         }
-
-        // Check model readiness with filesystem refresh
         const isReady = await invokeTauri<boolean>('builtin_ai_is_model_ready', {
-          modelName: selectedModel,
+          modelName: modelConfig.model,
           refresh: true,
         });
-
         if (!isReady) {
-          // Get detailed model status
-          const modelInfo = await invokeTauri<BuiltInModelInfo | null>('builtin_ai_get_model_info', {
-            modelName: selectedModel,
-          });
-
-          if (modelInfo) {
-            const status = modelInfo.status;
-
-            if (status.type === 'downloading') {
-              toast.info(i18n.t('meetingArea.models.downloadingTitle'), {
-                description: i18n.t('meetingArea.models.downloadingDescription', {
-                  model: selectedModel,
-                  progress: status.progress,
-                }),
-                duration: 5000,
-              });
-              return;
-            }
-
-            if (status.type === 'not_downloaded') {
-              toast.error(i18n.t('meetingArea.models.builtInNotDownloadedTitle'), {
-                description: i18n.t('meetingArea.models.builtInNotDownloadedDescription', { model: selectedModel }),
-                duration: 7000,
-              });
-              if (onOpenModelSettings) {
-                onOpenModelSettings();
-              }
-              return;
-            }
-
-            if (status.type === 'corrupted' || status.type === 'error') {
-              const errorDesc = status.type === 'error'
-                ? status.Error || i18n.t('meetingArea.models.builtInFileError')
-                : i18n.t('meetingArea.models.builtInFileCorrupted');
-              toast.error(i18n.t('meetingArea.models.builtInNotAvailableTitle'), {
-                description: i18n.t('meetingArea.models.builtInNotAvailableDescription', { error: errorDesc }),
-                duration: 7000,
-              });
-              if (onOpenModelSettings) {
-                onOpenModelSettings();
-              }
-              return;
-            }
-          }
-
-          // Fallback if we couldn't get model info
-          toast.error(i18n.t('meetingArea.models.builtInNotReadyTitle'), {
-            description: i18n.t('meetingArea.models.builtInNotReadyDescription'),
-            duration: 5000,
-          });
-          if (onOpenModelSettings) {
-            onOpenModelSettings();
-          }
+          showPreflightError(i18n.t('meetingArea.models.builtInNotReadyCheck'));
+          onOpenModelSettings?.();
           return;
         }
-
-        // Model is ready, continue to backend call
-      } catch (error) {
-        console.error('Error validating built-in AI model:', error);
-        toast.error(i18n.t('meetingArea.models.builtInValidateFailed'), {
-          description: error instanceof Error ? error.message : String(error),
-          duration: 5000,
-        });
-        return;
       }
+    } catch (error) {
+      console.error('Failed to validate summary model:', error);
+      showPreflightError(i18n.t('meetingArea.models.validateFailedCheck'));
+      return;
     }
 
-    const summaryPayload = buildSummaryTranscriptPayload(allTranscripts);
-
     await processSummary({
-      ...summaryPayload,
+      ...buildSummaryTranscriptPayload(allTranscripts),
       customPrompt,
     });
-  }, [meeting.id, fetchAllTranscripts, buildSummaryTranscriptPayload, processSummary, modelConfig, isModelConfigLoading, selectedTemplate]);
+  }, [
+    buildSummaryTranscriptPayload,
+    fetchAllTranscripts,
+    isModelConfigLoading,
+    meeting.id,
+    modelConfig,
+    onOpenModelSettings,
+    processSummary,
+    showPreflightError,
+  ]);
 
   // Public API: Regenerate summary from the current saved transcript
   const handleRegenerateSummary = useCallback(async () => {
@@ -638,27 +528,51 @@ export function useSummaryGeneration({
 
   // Public API: Stop ongoing summary generation
   const handleStopGeneration = useCallback(async () => {
-    console.log('Stopping summary generation for meeting:', meeting.id);
-
-    try {
-      // Call backend to cancel the summary generation
-      await invokeTauri('api_cancel_summary', {
-        meetingId: meeting.id
-      });
-      console.log('✓ Backend cancellation request sent for meeting:', meeting.id);
-    } catch (error) {
-      console.error('Failed to cancel summary generation:', error);
-      // Continue with frontend cleanup even if backend call fails
+    const generationId = generationIdRef.current;
+    const processId = activeProcessIdRef.current;
+    if (!processId) {
+      generationIdRef.current += 1;
+      activeProcessIdRef.current = null;
+      setSummaryStatus('idle');
+      setSummaryError(null);
+      // No toast: the user pressed Stop, and the button flipping back from "Stop" to
+      // "Generate" is the confirmation.
+      await finishGeneration(generationId, 'cancelled');
+      return;
     }
 
-    // Stop polling
-    stopSummaryPolling(meeting.id);
-
-    // Reset status to idle. No toast: the user pressed Stop, and the button flipping
-    // back from "Stop" to "Generate" is the confirmation.
-    setSummaryStatus('idle');
-    setSummaryError(null);
-  }, [meeting.id, stopSummaryPolling]);
+    try {
+      const result = await invokeTauri<CancelSummaryResponse>('api_cancel_summary', {
+        meetingId: meeting.id,
+        processId,
+      });
+      if (!mountedRef.current || visibleMeetingIdRef.current !== meeting.id || generationId !== generationIdRef.current) {
+        return;
+      }
+      if (result.cancelled) {
+        generationIdRef.current += 1;
+        activeProcessIdRef.current = null;
+        stopSummaryPolling(meeting.id, processId);
+        setSummaryStatus('idle');
+        setSummaryError(null);
+        await finishGeneration(generationId, 'cancelled');
+      } else if (activeProcessIdRef.current === processId) {
+        toast.info(i18n.t('meetingArea.toasts.alreadyFinishingTitle'), {
+          description: i18n.t('meetingArea.toasts.alreadyFinishingDescription'),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to cancel summary generation:', error);
+      if (
+        generationId === generationIdRef.current
+        && activeProcessIdRef.current === processId
+      ) {
+        toast.error(i18n.t('meetingArea.toasts.stopFailedTitle'), {
+          description: i18n.t('meetingArea.toasts.stopFailedDescription'),
+        });
+      }
+    }
+  }, [finishGeneration, meeting.id, stopSummaryPolling]);
 
   return {
     summaryStatus,

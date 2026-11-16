@@ -106,7 +106,10 @@
       "ollamaNotInstalledDescription": "Please download and install Ollama to use local models.",
       "ollamaDownloadAction": "Download",
       "ollamaCheckFailed": "Failed to check Ollama models. Please check if Ollama is running and download a model.",
-      "ollamaCheckFailedSettings": "Failed to check Ollama models. Please ensure Ollama is running and download a model from Settings."
+      "ollamaCheckFailedSettings": "Failed to check Ollama models. Please ensure Ollama is running and download a model from Settings.",
+      "noBuiltInSelectedSettings": "No built-in AI model selected. Please select a model in settings.",
+      "builtInNotReadyCheck": "Built-in AI model is not ready. Please check model settings.",
+      "validateFailedCheck": "Failed to validate summary model. Please check model settings."
     },
     "updater": {
       "saving": "Saving...",
@@ -211,7 +214,18 @@
       "templateSelected": "Template selected",
       "templateSelectedDescription": "Using \"{{name}}\" template for summary generation",
       "openFolderFailed": "Failed to open recording folder",
-      "unknownError": "Unknown error"
+      "unknownError": "Unknown error",
+      "summaryFailedRetry": "Summary generation failed. Please retry.",
+      "cancelReloadFailed": "Summary generation was cancelled, but the saved summary could not be reloaded. Please reopen this meeting.",
+      "completedNoContent": "Summary generation completed without visible content. Please retry.",
+      "fallbackTitle": "Summary generated with fallback",
+      "fallbackDescription": "Converting the summary to the target language failed, so the original draft was kept.",
+      "summarySuccessReasoningStripped": "Your meeting summary is ready. Model reasoning was filtered out of the notes.",
+      "generationFailedShort": "Summary generation failed.",
+      "alreadyFinishingTitle": "Summary is already finishing",
+      "alreadyFinishingDescription": "Waiting for the latest result.",
+      "stopFailedTitle": "Failed to stop summary generation",
+      "stopFailedDescription": "Generation is still running; waiting for its latest status."
     },
     "clipboard": {
       "transcriptHeader": "Transcript of the Meeting: {{id}} - {{title}}",

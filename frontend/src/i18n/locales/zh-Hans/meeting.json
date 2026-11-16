@@ -106,7 +106,10 @@
       "ollamaNotInstalledDescription": "请下载并安装 Ollama 以使用本地模型。",
       "ollamaDownloadAction": "下载",
       "ollamaCheckFailed": "检查 Ollama 模型失败。请确认 Ollama 正在运行，并下载一个模型。",
-      "ollamaCheckFailedSettings": "检查 Ollama 模型失败。请确认 Ollama 正在运行，并在设置中下载一个模型。"
+      "ollamaCheckFailedSettings": "检查 Ollama 模型失败。请确认 Ollama 正在运行，并在设置中下载一个模型。",
+      "noBuiltInSelectedSettings": "未选择内置 AI 模型，请在设置中选择一个模型。",
+      "builtInNotReadyCheck": "内置 AI 模型尚未就绪，请检查模型设置。",
+      "validateFailedCheck": "验证摘要模型失败，请检查模型设置。"
     },
     "updater": {
       "saving": "保存中…",
@@ -211,7 +214,18 @@
       "templateSelected": "已选择模板",
       "templateSelectedDescription": "将使用“{{name}}”模板生成摘要",
       "openFolderFailed": "打开录音文件夹失败",
-      "unknownError": "未知错误"
+      "unknownError": "未知错误",
+      "summaryFailedRetry": "摘要生成失败，请重试。",
+      "cancelReloadFailed": "摘要生成已取消，但无法重新加载已保存的摘要。请重新打开此会议。",
+      "completedNoContent": "摘要生成已完成，但没有可见内容，请重试。",
+      "fallbackTitle": "摘要已生成（使用了回退方案）",
+      "fallbackDescription": "将摘要转换为目标语言时失败，已保留原始草稿。",
+      "summarySuccessReasoningStripped": "会议摘要已就绪。模型的推理过程已从笔记中过滤。",
+      "generationFailedShort": "摘要生成失败。",
+      "alreadyFinishingTitle": "摘要即将完成",
+      "alreadyFinishingDescription": "正在等待最新结果。",
+      "stopFailedTitle": "停止摘要生成失败",
+      "stopFailedDescription": "生成仍在进行，正在等待其最新状态。"
     },
     "clipboard": {
       "transcriptHeader": "会议转录：{{id}} - {{title}}",

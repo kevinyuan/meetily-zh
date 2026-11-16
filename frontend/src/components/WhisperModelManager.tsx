@@ -37,6 +37,7 @@ export function ModelManager({
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [downloadingModels, setDownloadingModels] = useState<Set<string>>(new Set());
+  const [cancellingModels, setCancellingModels] = useState<Set<string>>(new Set());
   const [hasUserSelection, setHasUserSelection] = useState(false);
 
   // Refs for stable callbacks
@@ -45,6 +46,8 @@ export function ModelManager({
 
   // Progress throttle map to prevent rapid updates
   const progressThrottleRef = useRef<Map<string, { progress: number; timestamp: number }>>(new Map());
+  const cancellationReconciliationModelsRef = useRef<Set<string>>(new Set());
+  const cancellationReconcileTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Update refs when props change
   useEffect(() => {
@@ -69,6 +72,70 @@ export function ModelManager({
       localStorage.setItem('downloading-models', JSON.stringify(Array.from(newSet)));
       return newSet;
     });
+  };
+
+  const clearCancellationReconciliation = (modelName: string) => {
+    cancellationReconciliationModelsRef.current.delete(modelName);
+    const timer = cancellationReconcileTimersRef.current.get(modelName);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      cancellationReconcileTimersRef.current.delete(modelName);
+    }
+    setCancellingModels(prev => {
+      const next = new Set(prev);
+      next.delete(modelName);
+      return next;
+    });
+  };
+
+  const reconcileCancellation = (modelName: string) => {
+    if (cancellationReconciliationModelsRef.current.has(modelName)) return;
+
+    cancellationReconciliationModelsRef.current.add(modelName);
+    setCancellingModels(prev => new Set([...prev, modelName]));
+
+    const scheduleNextCheck = () => {
+      if (!cancellationReconciliationModelsRef.current.has(modelName)) return;
+      const timer = setTimeout(() => {
+        cancellationReconcileTimersRef.current.delete(modelName);
+        void reconcile();
+      }, 1000);
+      cancellationReconcileTimersRef.current.set(modelName, timer);
+    };
+
+    const reconcile = async () => {
+      try {
+        const modelList = await WhisperAPI.getAvailableModels();
+        if (!cancellationReconciliationModelsRef.current.has(modelName)) return;
+
+        const model = modelList.find(candidate => candidate.name === modelName);
+
+        const isStillDownloading = typeof model?.status === 'object' && 'Downloading' in model.status;
+        if (model && !isStillDownloading) {
+          clearCancellationReconciliation(modelName);
+          updateDownloadingModels(prev => {
+            const next = new Set(prev);
+            next.delete(modelName);
+            return next;
+          });
+          setModels(modelList);
+          progressThrottleRef.current.delete(modelName);
+          toast.info(
+            model.status === 'Available'
+              ? `${getDisplayName(modelName)} download completed before cancellation`
+              : `${getDisplayName(modelName)} download cancelled`,
+            { duration: 3000 }
+          );
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to reconcile pending download cancellation:', err);
+      }
+
+      scheduleNextCheck();
+    };
+
+    void reconcile();
   };
 
   // Initialize models
@@ -100,7 +167,7 @@ export function ModelManager({
               });
               return model;
             } else {
-              return { ...model, status: { Downloading: 0 } as ModelStatus };
+              return { ...model, status: { Downloading: { progress: 0 } } as ModelStatus };
             }
           }
           return model;
@@ -150,7 +217,7 @@ export function ModelManager({
             setModels(prevModels =>
               prevModels.map(model =>
                 model.name === modelName
-                  ? { ...model, status: { Downloading: progress } as ModelStatus }
+                  ? { ...model, status: { Downloading: { progress } } as ModelStatus }
                   : model
               )
             );
@@ -166,6 +233,8 @@ export function ModelManager({
           const model = models.find(m => m.name === modelName);
           const displayName = getDisplayName(modelName);
 
+          clearCancellationReconciliation(modelName);
+
           setModels(prevModels =>
             prevModels.map(model =>
               model.name === modelName
@@ -174,7 +243,7 @@ export function ModelManager({
             )
           );
 
-          setDownloadingModels(prev => {
+          updateDownloadingModels(prev => {
             const newSet = new Set(prev);
             newSet.delete(modelName);
             return newSet;
@@ -208,6 +277,8 @@ export function ModelManager({
           const { modelName, error } = event.payload;
           const displayName = getDisplayName(modelName);
 
+          clearCancellationReconciliation(modelName);
+
           setModels(prevModels =>
             prevModels.map(model =>
               model.name === modelName
@@ -216,7 +287,7 @@ export function ModelManager({
             )
           );
 
-          setDownloadingModels(prev => {
+          updateDownloadingModels(prev => {
             const newSet = new Set(prev);
             newSet.delete(modelName);
             return newSet;
@@ -244,6 +315,11 @@ export function ModelManager({
       if (unlistenProgress) unlistenProgress();
       if (unlistenComplete) unlistenComplete();
       if (unlistenError) unlistenError();
+      for (const timer of cancellationReconcileTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      cancellationReconcileTimersRef.current.clear();
+      cancellationReconciliationModelsRef.current.clear();
     };
   }, []); // Empty dependency array - listeners use refs for stable callbacks
 
@@ -263,26 +339,19 @@ export function ModelManager({
     const displayName = getDisplayName(modelName);
 
     try {
-      await WhisperAPI.cancelDownload(modelName);
+      const outcome = await WhisperAPI.cancelDownload(modelName);
+      if (outcome === 'pending') {
+        reconcileCancellation(modelName);
+        toast.info(`Cancelling ${displayName}...`, {
+          description: 'The download is still shutting down. Retry will be available when cleanup completes.',
+          duration: 4000
+        });
+        return;
+      }
 
-      updateDownloadingModels(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(modelName);
-        return newSet;
-      });
-
-      setModels(prevModels =>
-        prevModels.map(model =>
-          model.name === modelName
-            ? { ...model, status: 'Missing' as ModelStatus }
-            : model
-        )
-      );
-
-      // Clean up throttle data
-      progressThrottleRef.current.delete(modelName);
-
-      console.log(`Download cancelled: ${displayName}`);
+      // A worker can finish between the user's click and the cancellation command
+      // acquiring its owner. Reconcile instead of overwriting a valid Available state.
+      reconcileCancellation(modelName);
     } catch (err) {
       console.error('Failed to cancel download:', err);
       toast.error(t('modelsArea.toast.cancelFailed'), {
@@ -295,6 +364,8 @@ export function ModelManager({
   const downloadModel = async (modelName: string) => {
     if (downloadingModels.has(modelName)) return;
 
+    clearCancellationReconciliation(modelName);
+
     const displayName = getDisplayName(modelName);
 
     try {
@@ -303,7 +374,7 @@ export function ModelManager({
       setModels(prevModels =>
         prevModels.map(model =>
           model.name === modelName
-            ? { ...model, status: { Downloading: 0 } as ModelStatus }
+            ? { ...model, status: { Downloading: { progress: 0 } } as ModelStatus }
             : model
         )
       );
@@ -434,6 +505,7 @@ export function ModelManager({
               onCancel={() => cancelDownload(model.name)}
               onDelete={() => deleteModel(model.name)}
               isDownloading={downloadingModels.has(model.name)}
+              isCancelling={cancellingModels.has(model.name)}
               displayName={getDisplayName(model.name)}
             />
           );
@@ -464,6 +536,7 @@ export function ModelManager({
                     onCancel={() => cancelDownload(model.name)}
                     onDelete={() => deleteModel(model.name)}
                     isDownloading={downloadingModels.has(model.name)}
+                    isCancelling={cancellingModels.has(model.name)}
                     displayName={getDisplayName(model.name)}
                   />
                 ))}
@@ -497,6 +570,7 @@ interface ModelCardProps {
   onCancel: () => void;
   onDelete: () => void;
   isDownloading: boolean;
+  isCancelling: boolean;
   displayName: string;
 }
 
@@ -509,6 +583,7 @@ function ModelCard({
   onCancel,
   onDelete,
   isDownloading,
+  isCancelling,
   displayName
 }: ModelCardProps) {
   const { t } = useTranslation();
@@ -520,7 +595,7 @@ function ModelCard({
   const isCorrupted = typeof model.status === 'object' && 'Corrupted' in model.status;
   const downloadProgress =
     typeof model.status === 'object' && 'Downloading' in model.status
-      ? model.status.Downloading
+      ? model.status.Downloading.progress
       : null;
 
   return (
@@ -687,19 +762,29 @@ function ModelCard({
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-blue-600">{t('modelsArea.common.downloading')}</span>
-                <span className="text-sm font-semibold text-blue-600">{Math.round(downloadProgress)}%</span>
+                <span className="text-sm font-medium text-blue-600">
+                  {isCancelling ? t('modelsArea.common.cancelling') : t('modelsArea.common.downloading')}
+                </span>
+                {!isCancelling && (
+                  <span className="text-sm font-semibold text-blue-600">{Math.round(downloadProgress)}%</span>
+                )}
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCancel();
-                }}
-                className="text-xs text-gray-600 hover:text-red-600 font-medium transition-colors px-2 py-1 rounded hover:bg-red-50"
-                title={t('modelsArea.common.cancelDownload')}
-              >
-                {t('modelsArea.common.cancel')}
-              </button>
+              {isCancelling ? (
+                <span className="text-xs text-gray-500 font-medium px-2 py-1">
+                  {t('modelsArea.common.cancellationRequested')}
+                </span>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancel();
+                  }}
+                  className="text-xs text-gray-600 hover:text-red-600 font-medium transition-colors px-2 py-1 rounded hover:bg-red-50"
+                  title={t('modelsArea.common.cancelDownload')}
+                >
+                  {t('modelsArea.common.cancel')}
+                </button>
+              )}
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <motion.div

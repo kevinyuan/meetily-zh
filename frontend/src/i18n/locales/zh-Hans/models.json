@@ -19,7 +19,9 @@
       "unknownError": "未知错误",
       "accuracy": "准确度：{{accuracy}}",
       "processing": "处理速度：{{speed}}",
-      "usingForTranscription": "正在使用 {{model}} 进行转录"
+      "usingForTranscription": "正在使用 {{model}} 进行转录",
+      "cancelling": "正在取消…",
+      "cancellationRequested": "已请求取消"
     },
     "accuracyLabel": {
       "High": "高",
@@ -46,7 +48,10 @@
       "deleted": "已删除 {{model}}",
       "deletedDescription": "已移除模型以释放空间",
       "deleteFailedDescription": "删除失败",
-      "downloadFailedDescription": "下载失败"
+      "downloadFailedDescription": "下载失败",
+      "cancelPendingTitle": "正在取消 {{model}}...",
+      "cancelPendingDescription": "下载仍在关闭中，清理完成后即可重试。",
+      "listenFailed": "无法监听模型更新"
     },
     "whisper": {
       "advancedModels": "高级模型",

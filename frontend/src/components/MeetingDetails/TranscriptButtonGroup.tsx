@@ -45,6 +45,7 @@ export function TranscriptButtonGroup({
         <Button
           variant="outline"
           size="sm"
+          className="px-2 @[22rem]:px-3"
           onClick={() => {
             Analytics.trackButtonClick('copy_transcript', 'meeting_details');
             onCopyTranscript();
@@ -53,36 +54,36 @@ export function TranscriptButtonGroup({
           title={transcriptCount === 0 ? t('meetingArea.transcript.noTranscriptTitle') : t('meetingArea.transcript.copyTitle')}
         >
           <Copy />
-          <span className="hidden lg:inline">{t('meetingArea.transcript.copy')}</span>
+          <span className="hidden @[22rem]:inline">{t('meetingArea.transcript.copy')}</span>
         </Button>
 
         <Button
           size="sm"
           variant="outline"
-          className="xl:px-4"
+          className="px-2 @[22rem]:px-4"
           onClick={() => {
             Analytics.trackButtonClick('open_recording_folder', 'meeting_details');
             onOpenMeetingFolder();
           }}
           title={t('meetingArea.transcript.openFolderTitle')}
         >
-          <FolderOpen className="xl:mr-2" size={18} />
-          <span className="hidden lg:inline">{t('meetingArea.transcript.recording')}</span>
+          <FolderOpen className="@[22rem]:mr-2" size={18} />
+          <span className="hidden @[22rem]:inline">{t('meetingArea.transcript.recording')}</span>
         </Button>
 
         {betaFeatures.importAndRetranscribe && meetingId && meetingFolderPath && (
           <Button
             size="sm"
             variant="outline"
-            className="bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 xl:px-4"
+            className="bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200 px-2 @[22rem]:px-4"
             onClick={() => {
               Analytics.trackButtonClick('enhance_transcript', 'meeting_details');
               setShowRetranscribeDialog(true);
             }}
             title={t('meetingArea.transcript.enhanceTitle')}
           >
-            <RefreshCw className="xl:mr-2" size={18} />
-            <span className="hidden lg:inline">{t('meetingArea.transcript.enhance')}</span>
+            <RefreshCw className="@[22rem]:mr-2" size={18} />
+            <span className="hidden @[22rem]:inline">{t('meetingArea.transcript.enhance')}</span>
           </Button>
         )}
       </ButtonGroup>

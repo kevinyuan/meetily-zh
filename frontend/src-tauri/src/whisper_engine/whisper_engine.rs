@@ -3,7 +3,9 @@
 use std::path::{PathBuf};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
+use tokio::sync::{watch, Mutex, RwLock};
+use tokio_util::sync::CancellationToken;
 use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
@@ -36,20 +38,45 @@ pub struct ModelInfo {
     pub languages: Vec<String>,
 }
 
+struct ActiveDownload {
+    cancellation: CancellationToken,
+    completion: watch::Sender<bool>,
+}
+
+#[cfg(test)]
+struct DownloadStateTestHook {
+    cancellation_first_lock_acquired: tokio::sync::Notify,
+    continue_cancellation: tokio::sync::Notify,
+    discovery_active_lock_acquired: tokio::sync::Notify,
+    continue_discovery: tokio::sync::Notify,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Download cancelled by user")]
+pub(crate) struct DownloadCancelled;
+
+pub(crate) fn is_download_cancelled(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<DownloadCancelled>().is_some()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CancelDownloadOutcome {
+    Cancelled,
+    Pending,
+}
+
+const CANCEL_DOWNLOAD_CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub struct WhisperEngine {
     models_dir: PathBuf,
     current_context: Arc<RwLock<Option<WhisperContext>>>,
     current_model: Arc<RwLock<Option<String>>>,
     available_models: Arc<RwLock<HashMap<String, ModelInfo>>>,
-    // State tracking for smart logging
-    last_transcription_was_short: Arc<RwLock<bool>>,
-    short_audio_warning_logged: Arc<RwLock<bool>>,
-    // Performance optimization: reduce logging frequency
-    transcription_count: Arc<RwLock<u64>>,
-    // Download cancellation tracking
-    cancel_download_flag: Arc<RwLock<Option<String>>>, // Model name being cancelled
-    // Active downloads tracking to prevent concurrent downloads
-    active_downloads: Arc<RwLock<HashSet<String>>>, // Set of models currently being downloaded
+    // A model remains active until its owning worker has completed cleanup.
+    active_downloads: Arc<Mutex<HashMap<String, Arc<ActiveDownload>>>>,
+    #[cfg(test)]
+    download_state_test_hook: std::sync::Mutex<Option<Arc<DownloadStateTestHook>>>,
 }
 
 impl WhisperEngine {
@@ -157,18 +184,20 @@ impl WhisperEngine {
             current_context: Arc::new(RwLock::new(None)),
             current_model: Arc::new(RwLock::new(None)),
             available_models: Arc::new(RwLock::new(HashMap::new())),
-            // Initialize state tracking
-            last_transcription_was_short: Arc::new(RwLock::new(false)),
-            short_audio_warning_logged: Arc::new(RwLock::new(false)),
-            // Performance optimization: reduce logging frequency
-            transcription_count: Arc::new(RwLock::new(0)),
-            // Initialize cancellation tracking
-            cancel_download_flag: Arc::new(RwLock::new(None)),
-            // Initialize active downloads tracking
-            active_downloads: Arc::new(RwLock::new(HashSet::new())),
+            active_downloads: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(test)]
+            download_state_test_hook: std::sync::Mutex::new(None),
         };
         
         Ok(engine)
+    }
+
+    #[cfg(test)]
+    fn test_hook(&self) -> Option<Arc<DownloadStateTestHook>> {
+        self.download_state_test_hook
+            .lock()
+            .expect("download state test hook mutex should not be poisoned")
+            .clone()
     }
     
     pub async fn discover_models(&self) -> Result<Vec<ModelInfo>> {
@@ -209,32 +238,11 @@ impl WhisperEngine {
                                 }
                             }
                         } else if file_size_mb > 0 {
-                            // File exists but is smaller than expected
-                            // Check if this model is currently being downloaded
-                            let models_guard = self.available_models.read().await;
-                            if let Some(existing_model) = models_guard.get(name) {
-                                match &existing_model.status {
-                                    ModelStatus::Downloading { progress } => {
-                                        log::debug!("Model {} appears to be downloading ({} MB so far, {}% complete)",
-                                                  filename, file_size_mb, progress);
-                                        ModelStatus::Downloading { progress: *progress }
-                                    }
-                                    _ => {
-                                        log::warn!("Model file {} exists but is corrupted ({} MB, expected ~{} MB)",
-                                                 filename, file_size_mb, size_mb);
-                                        ModelStatus::Corrupted {
-                                            file_size: file_size_bytes,
-                                            expected_min_size: (expected_min_size_mb * 1024 * 1024) as u64
-                                        }
-                                    }
-                                }
-                            } else {
-                                log::warn!("Model file {} exists but is corrupted ({} MB, expected ~{} MB)",
-                                         filename, file_size_mb, size_mb);
-                                ModelStatus::Corrupted {
-                                    file_size: file_size_bytes,
-                                    expected_min_size: (expected_min_size_mb * 1024 * 1024) as u64
-                                }
+                            log::warn!("Model file {} exists but is corrupted ({} MB, expected ~{} MB)",
+                                     filename, file_size_mb, size_mb);
+                            ModelStatus::Corrupted {
+                                file_size: file_size_bytes,
+                                expected_min_size: (expected_min_size_mb * 1024 * 1024) as u64
                             }
                         } else {
                             ModelStatus::Missing
@@ -260,8 +268,25 @@ impl WhisperEngine {
             models.push(model_info);
         }
         
-        // Update internal cache
+        let active_downloads = self.active_downloads.lock().await;
+        #[cfg(test)]
+        if let Some(hook) = self.test_hook() {
+            hook.discovery_active_lock_acquired.notify_one();
+            hook.continue_discovery.notified().await;
+        }
         let mut available_models = self.available_models.write().await;
+        for model in &mut models {
+            if active_downloads.contains_key(&model.name) {
+                let progress = available_models
+                    .get(&model.name)
+                    .and_then(|cached| match cached.status {
+                        ModelStatus::Downloading { progress } => Some(progress),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                model.status = ModelStatus::Downloading { progress };
+            }
+        }
         available_models.clear();
         for model in &models {
             available_models.insert(model.name.clone(), model.clone());
@@ -383,8 +408,10 @@ impl WhisperEngine {
 
         // Check for obviously meaningless patterns first
         if Self::is_meaningless_output(text) {
-            // Performance optimization: reduce meaningless output logging to debug level
-            perf_debug!("Detected meaningless output, returning empty: '{}'", text);
+            log::debug!(
+                "Filtered meaningless Whisper output text_length={}",
+                text.chars().count()
+            );
             return String::new();
         }
 
@@ -402,8 +429,10 @@ impl WhisperEngine {
         // Check for overall repetition ratio
         let final_text = cleaned_words.join(" ");
         if Self::calculate_repetition_ratio(&final_text) > 0.7 {
-            // Performance optimization: reduce repetition ratio logging to debug level
-            perf_debug!("High repetition ratio detected, filtering out: '{}'", final_text);
+            log::debug!(
+                "Filtered repetitive Whisper output text_length={}",
+                final_text.chars().count()
+            );
             return String::new();
         }
 
@@ -642,25 +671,22 @@ impl WhisperEngine {
         Ok((cleaned_result, avg_confidence, is_partial))
     }
 
-    pub async fn transcribe_audio(&self, audio_data: Vec<f32>, language: Option<String>) -> Result<String> {
+    pub async fn transcribe_audio(
+        &self,
+        audio_data: Vec<f32>,
+        language: Option<String>,
+    ) -> Result<String> {
         let ctx_lock = self.current_context.read().await;
-        let ctx = ctx_lock.as_ref()
+        let ctx = ctx_lock
+            .as_ref()
             .ok_or_else(|| anyhow!("No model loaded. Please load a model first."))?;
-
-        // Get adaptive configuration based on hardware
         let hardware_profile = crate::audio::HardwareProfile::detect();
         let adaptive_config = hardware_profile.get_whisper_config();
-
-        // ADAPTIVE parameters - optimized for current hardware
         let mut params = FullParams::new(SamplingStrategy::BeamSearch {
             beam_size: adaptive_config.beam_size as i32,
-            patience: 1.0
+            patience: 1.0,
         });
 
-        // Configure for good quality
-        // If language is "auto" or None, use automatic language detection (pass None)
-        // If language is "auto-translate", enable translation to English
-        // Otherwise, use the specified language code
         let (language_code, should_translate) = match language.as_deref() {
             Some("auto") | None => (None, false),
             Some("auto-translate") => (None, true),
@@ -668,97 +694,25 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
-
-        // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
-        // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
-        // complete, valid transcriptions. Disabling timestamps forces whisper to return ALL text.
-        params.set_no_timestamps(true);     // Prevent timestamp-based segment skipping
-        params.set_token_timestamps(true);  // Keep for any timestamp-aware features
-
+        params.set_no_timestamps(true);
+        params.set_token_timestamps(true);
         params.set_print_special(false);
         params.set_print_progress(false);
         params.set_print_realtime(false);
         params.set_print_timestamps(false);
-
-        // BALANCED settings - good quality with reasonable speed
         params.set_suppress_blank(true);
         params.set_suppress_non_speech_tokens(true);
-        params.set_temperature(0.3);             // Lower than 0.4 for consistency, higher than 0.0 for quality
+        params.set_temperature(0.3);
         params.set_max_initial_ts(1.0);
         params.set_entropy_thold(2.4);
         params.set_logprob_thold(-1.0);
-        // BALANCED FIX: Lowered from 0.75 to 0.55 to allow quiet speech detection
-        // Previous value was too aggressive and rejected valid quiet speech
-        // 0.55 is balanced - prevents hallucinations while preserving quiet speech
         params.set_no_speech_thold(0.55);
+        params.set_max_len(200);
+        params.set_single_segment(false);
 
-        // Reasonable length limits
-        params.set_max_len(200);                 // Reasonable length
-        params.set_single_segment(false);        // Allow multiple segments for better accuracy
-
-        // Note: compression_ratio_threshold would be ideal but not available in current whisper-rs
-        // This would help detect repetitive outputs: params.set_compression_ratio_threshold(2.4);
-
-        // Duration-based optimization is handled by beam search parameters
-        let duration_seconds = audio_data.len() as f64 / 16000.0; // Assuming 16kHz
-        let is_short_audio = duration_seconds < 1.0;
-
-        // Smart logging based on audio duration and previous states
-        let mut should_log_transcription = true;
-        let mut should_log_short_warning = false;
-
-        if is_short_audio {
-            let last_was_short = *self.last_transcription_was_short.read().await;
-            let warning_logged = *self.short_audio_warning_logged.read().await;
-
-            if !warning_logged {
-                should_log_short_warning = true;
-                *self.short_audio_warning_logged.write().await = true;
-            }
-
-            // Only log transcription start if it's the first short audio or previous wasn't short
-            should_log_transcription = !last_was_short;
-
-            *self.last_transcription_was_short.write().await = true;
-        } else {
-            let last_was_short = *self.last_transcription_was_short.read().await;
-
-            // Always log when transitioning from short to normal audio
-            if last_was_short {
-                log::info!("Audio duration normalized, resuming transcription");
-                *self.short_audio_warning_logged.write().await = false;
-            }
-
-            *self.last_transcription_was_short.write().await = false;
-        }
-
-        if should_log_short_warning {
-            log::warn!("Audio duration is short ({:.1}s < 1.0s). Consider padding the input audio with silence. Further short audio warnings will be suppressed.", duration_seconds);
-        }
-
-        // Performance optimization: reduce transcription start logging frequency
-        let transcription_count = {
-            let mut count = self.transcription_count.write().await;
-            *count += 1;
-            *count
-        };
-
-        // Only log every 10th transcription or significant audio (>10s) to reduce I/O overhead
-        if should_log_transcription && (transcription_count % 10 == 0 || duration_seconds > 10.0) {
-            log::info!("Starting transcription #{} of {} samples ({:.1}s duration)",
-                      transcription_count, audio_data.len(), duration_seconds);
-        }
         let mut state = ctx.create_state()?;
         state.full(params, &audio_data)?;
-
-        // Extract text with improved segment handling
         let num_segments = state.full_n_segments()?;
-
-        // Performance optimization: reduce segment completion logging
-        // Only log for significant transcriptions to avoid I/O overhead
-        if (should_log_transcription || num_segments > 0) && (num_segments > 3 || duration_seconds > 5.0) {
-            perf_debug!("Transcription #{} completed with {} segments ({:.1}s)", transcription_count, num_segments, duration_seconds);
-        }
         let mut result = String::new();
 
         for i in 0..num_segments {
@@ -766,19 +720,6 @@ impl WhisperEngine {
                 Ok(text) => text,
                 Err(_) => continue,
             };
-
-            let _start_time = state.full_get_segment_t0(i).unwrap_or(0);
-            let _end_time = state.full_get_segment_t1(i).unwrap_or(0);
-
-            // Performance optimization: remove per-segment debug logging
-            // This was causing significant I/O overhead during transcription
-            // Only log segments for very long audio (>30s) or when explicitly debugging
-            if duration_seconds > 30.0 {
-                perf_trace!("Segment {} ({:.2}s-{:.2}s): '{}'",
-                           i, _start_time as f64 / 100.0, _end_time as f64 / 100.0, segment_text);
-            }
-
-            // Clean and append segment text
             let cleaned_text = segment_text.trim();
             if !cleaned_text.is_empty() {
                 if !result.is_empty() {
@@ -788,31 +729,7 @@ impl WhisperEngine {
             }
         }
 
-        let final_result = result.trim().to_string();
-
-        // Check for repetition loops and clean them up
-        let cleaned_result = Self::clean_repetitive_text(&final_result);
-
-        // Performance optimization: smart logging for transcription results
-        if cleaned_result.is_empty() {
-            // Only log empty results occasionally to reduce spam
-            if should_log_transcription && transcription_count % 20 == 0 {
-                perf_debug!("Transcription #{} result is empty - no speech detected", transcription_count);
-            }
-        } else {
-            if cleaned_result != final_result {
-                log::info!("Cleaned repetitive transcription #{}: '{}' -> '{}'", transcription_count, final_result, cleaned_result);
-            }
-            // Reduce successful transcription logging frequency
-            // Only log every 5th result or significant results (>50 chars) to reduce I/O overhead
-            if transcription_count % 5 == 0 || cleaned_result.len() > 50 || duration_seconds > 10.0 {
-                log::info!("Transcription #{} result: '{}'", transcription_count, cleaned_result);
-            } else {
-                perf_debug!("Transcription #{} result: '{}'", transcription_count, cleaned_result);
-            }
-        }
-
-        Ok(cleaned_result)
+        Ok(Self::clean_repetitive_text(result.trim()))
     }
     
     pub async fn get_models_directory(&self) -> PathBuf {
@@ -906,87 +823,229 @@ impl WhisperEngine {
         }
     }
     
-    pub async fn download_model(&self, model_name: &str, progress_callback: Option<Box<dyn Fn(u8) + Send>>) -> Result<()> {
-        log::info!("Starting download for model: {}", model_name);
+    async fn reserve_active_download(&self, model_name: &str) -> Result<Arc<ActiveDownload>> {
+        let mut active_downloads = self.active_downloads.lock().await;
+        if active_downloads.contains_key(model_name) {
+            return Err(anyhow!("Download already in progress for model: {}", model_name));
+        }
 
-        // Check if download is already in progress for this model
-        {
-            let active = self.active_downloads.read().await;
-            if active.contains(model_name) {
-                log::warn!("Download already in progress for model: {}", model_name);
-                return Err(anyhow!("Download already in progress for model: {}", model_name));
+        let (completion, _) = watch::channel(false);
+        let active_download = Arc::new(ActiveDownload {
+            cancellation: CancellationToken::new(),
+            completion,
+        });
+
+        active_downloads.insert(model_name.to_string(), Arc::clone(&active_download));
+        Ok(active_download)
+    }
+
+    async fn finish_download(
+        &self,
+        model_name: &str,
+        active_download: &Arc<ActiveDownload>,
+        file_path: &PathBuf,
+        mut result: Result<()>,
+    ) -> Result<()> {
+        let active_owner_matches = {
+            let active_downloads = self.active_downloads.lock().await;
+            matches!(
+                active_downloads.get(model_name),
+                Some(current) if Arc::ptr_eq(current, active_download)
+            )
+        };
+        if !active_owner_matches {
+            log::warn!("Download owner for {} was no longer active during finalization", model_name);
+            active_download.completion.send_replace(true);
+            return result;
+        }
+
+        if result.is_ok() && !active_download.cancellation.is_cancelled() {
+            result = self.validate_model_file(file_path).await;
+
+            if result.is_ok() {
+                let expected_min_size = WHISPER_MODEL_CATALOG
+                    .iter()
+                    .find(|model| model.name == model_name)
+                    .map(|model| ((model.size_mb as f64 * 0.9) as u64) * 1024 * 1024);
+
+                result = match expected_min_size {
+                    Some(expected_min_size) => match fs::metadata(file_path).await {
+                        Ok(metadata) if metadata.len() >= expected_min_size => Ok(()),
+                        Ok(metadata) => Err(anyhow!(
+                            "Downloaded model file is too small: {} bytes (expected at least {} bytes)",
+                            metadata.len(),
+                            expected_min_size
+                        )),
+                        Err(e) => Err(anyhow!(
+                            "Failed to read downloaded model file metadata: {}",
+                            e
+                        )),
+                    },
+                    None => Err(anyhow!(
+                        "Unsupported model for download validation: {}",
+                        model_name
+                    )),
+                };
             }
         }
 
-        // Add to active downloads
-        {
-            let mut active = self.active_downloads.write().await;
-            active.insert(model_name.to_string());
+        if result.is_err() && !active_download.cancellation.is_cancelled() && file_path.exists() {
+            if let Err(e) = fs::remove_file(file_path).await {
+                log::warn!("Failed to clean up failed download file: {}", e);
+            } else {
+                log::info!("Cleaned up failed download file: {}", file_path.display());
+            }
         }
 
-        // Clear any previous cancellation flag for this model
-        {
-            let mut cancel_flag = self.cancel_download_flag.write().await;
-            *cancel_flag = None;
+        let (released_active_owner, cancellation_won) = {
+            let mut active_downloads = self.active_downloads.lock().await;
+            match active_downloads.get(model_name) {
+                Some(current) if Arc::ptr_eq(current, active_download) => {
+                    if active_download.cancellation.is_cancelled() {
+                        (false, true)
+                    } else {
+                        active_downloads.remove(model_name);
+                        (true, false)
+                    }
+                }
+                _ => {
+                    log::warn!("Download owner for {} was no longer active during finalization", model_name);
+                    (false, active_download.cancellation.is_cancelled())
+                }
+            }
+        };
+
+        if cancellation_won {
+            result = Err(DownloadCancelled.into());
+            if file_path.exists() {
+                if let Err(e) = fs::remove_file(file_path).await {
+                    log::warn!("Failed to clean up cancelled download file: {}", e);
+                } else {
+                    log::info!("Cleaned up cancelled download file: {}", file_path.display());
+                }
+            }
+
+            let removed = {
+                let mut active_downloads = self.active_downloads.lock().await;
+                #[cfg(test)]
+                if let Some(hook) = self.test_hook() {
+                    hook.cancellation_first_lock_acquired.notify_one();
+                    hook.continue_cancellation.notified().await;
+                }
+
+                let mut models = self.available_models.write().await;
+                match active_downloads.get(model_name) {
+                    Some(current) if Arc::ptr_eq(current, active_download) => {
+                        if let Some(model_info) = models.get_mut(model_name) {
+                            model_info.status = ModelStatus::Missing;
+                        }
+                        active_downloads.remove(model_name);
+                        true
+                    }
+                    _ => false,
+                }
+            };
+            if !removed {
+                log::warn!("Download owner for {} was no longer active during cancellation cleanup", model_name);
+            }
+        } else if released_active_owner {
+            let mut models = self.available_models.write().await;
+            if let Some(model_info) = models.get_mut(model_name) {
+                if result.is_ok() {
+                    model_info.status = ModelStatus::Available;
+                    model_info.path = file_path.clone();
+                } else {
+                    model_info.status = ModelStatus::Missing;
+                }
+            }
         }
 
-        // URL and filename both come from the catalog in config.rs — previously this
-        // was a second hardcoded list that had to be kept in sync by hand.
+        active_download.completion.send_replace(true);
+        result
+    }
+
+    pub async fn download_model(&self, model_name: &str, progress_callback: Option<Box<dyn Fn(u8) + Send>>) -> Result<()> {
+        log::info!("Starting download for model: {}", model_name);
+
+        // URL and filename both come from the catalog in config.rs.
         let def = crate::config::whisper_model(model_name)
             .ok_or_else(|| anyhow!("Unsupported model: {}", model_name))?;
         let model_url = def.url;
 
-        log::info!("Model URL for {}: {}", model_name, model_url);
+        self.download_model_from_url(model_name, model_url, progress_callback).await
+    }
 
-        let filename = def.filename.to_string();
-        let file_path = self.models_dir.join(&filename);
-        
-        log::info!("Downloading to file path: {}", file_path.display());
-        
-        // Create models directory if it doesn't exist
+    async fn download_model_from_url(
+        &self,
+        model_name: &str,
+        model_url: &str,
+        progress_callback: Option<Box<dyn Fn(u8) + Send>>,
+    ) -> Result<()> {
+        let active_download = self.reserve_active_download(model_name).await?;
+        let file_path = self.models_dir.join(
+            crate::config::whisper_model(model_name)
+                .map(|def| def.filename.to_string())
+                .unwrap_or_else(|| format!("ggml-{}.bin", model_name)),
+        );
+
+        let result = self
+            .download_model_with_owner(
+                model_name,
+                model_url,
+                &file_path,
+                &active_download,
+                progress_callback,
+            )
+            .await;
+
+        self.finish_download(model_name, &active_download, &file_path, result)
+            .await
+    }
+
+    async fn download_model_with_owner(
+        &self,
+        model_name: &str,
+        model_url: &str,
+        file_path: &PathBuf,
+        active_download: &ActiveDownload,
+        progress_callback: Option<Box<dyn Fn(u8) + Send>>,
+    ) -> Result<()> {
+        if active_download.cancellation.is_cancelled() {
+            return Err(DownloadCancelled.into());
+        }
+
         if !self.models_dir.exists() {
-            fs::create_dir_all(&self.models_dir).await
+            fs::create_dir_all(&self.models_dir)
+                .await
                 .map_err(|e| anyhow!("Failed to create models directory: {}", e))?;
         }
-        
-        // Update model status to downloading
+
         {
             let mut models = self.available_models.write().await;
             if let Some(model_info) = models.get_mut(model_name) {
                 model_info.status = ModelStatus::Downloading { progress: 0 };
             }
         }
-        
-        log::info!("Creating HTTP client and starting request...");
-        let client = Client::new();
-        
-        log::info!("Sending GET request to: {}", model_url);
-        let response = client.get(model_url).send().await
-            .map_err(|e| anyhow!("Failed to start download: {}", e))?;
-        
-        log::info!("Received response with status: {}", response.status());
+
+        let client = Client::builder()
+            .user_agent(concat!("Meetily/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .map_err(|e| anyhow!("Failed to create download client: {}", e))?;
+        let response = tokio::select! {
+            biased;
+            _ = active_download.cancellation.cancelled() => return Err(DownloadCancelled.into()),
+            response = client.get(model_url).send() => response
+                .map_err(|e| anyhow!("Failed to start download: {}", e))?,
+        };
+
         if !response.status().is_success() {
-            // Remove from active downloads on error
-            let mut active = self.active_downloads.write().await;
-            active.remove(model_name);
             return Err(anyhow!("Download failed with status: {}", response.status()));
         }
-        
+
         let total_size = response.content_length().unwrap_or(0);
-        log::info!("Response successful, content length: {} bytes ({:.1} MB)", total_size, total_size as f64 / (1024.0 * 1024.0));
-        
-        if total_size == 0 {
-            log::warn!("Content length is 0 or unknown - download may not show accurate progress");
-        }
-        
-        let mut file = fs::File::create(&file_path).await
+        let mut file = fs::File::create(file_path)
+            .await
             .map_err(|e| anyhow!("Failed to create file: {}", e))?;
-        
-        log::info!("File created successfully at: {}", file_path.display());
-        
-        // Stream download with real progress reporting
-        log::info!("Starting streaming download...");
-        log::info!("Expected size: {:.1} MB", total_size as f64 / (1024.0 * 1024.0));
 
         use futures_util::StreamExt;
         let mut stream = response.bytes_stream();
@@ -994,56 +1053,44 @@ impl WhisperEngine {
         let mut last_progress_report = 0u8;
         let mut last_report_time = std::time::Instant::now();
 
-        // Emit initial 0% progress immediately
         if let Some(ref callback) = progress_callback {
             callback(0);
         }
 
-        while let Some(chunk_result) = stream.next().await {
-            // Check for cancellation before processing chunk
-            {
-                let cancel_flag = self.cancel_download_flag.read().await;
-                if cancel_flag.as_ref() == Some(&model_name.to_string()) {
-                    log::info!("Download cancelled for {}", model_name);
-                    // Remove from active downloads on cancellation
-                    let mut active = self.active_downloads.write().await;
-                    active.remove(model_name);
-                    return Err(anyhow!("Download cancelled by user"));
-                }
+        loop {
+            let chunk_result = tokio::select! {
+                biased;
+                _ = active_download.cancellation.cancelled() => return Err(DownloadCancelled.into()),
+                chunk_result = stream.next() => chunk_result,
+            };
+
+            let Some(chunk_result) = chunk_result else {
+                break;
+            };
+
+            if active_download.cancellation.is_cancelled() {
+                return Err(DownloadCancelled.into());
             }
 
-            let chunk = chunk_result
-                .map_err(|e| anyhow!("Failed to read chunk: {}", e))?;
-
-            file.write_all(&chunk).await
+            let chunk = chunk_result.map_err(|e| anyhow!("Failed to read chunk: {}", e))?;
+            file.write_all(&chunk)
+                .await
                 .map_err(|e| anyhow!("Failed to write chunk to file: {}", e))?;
 
             downloaded += chunk.len() as u64;
-
-            // Calculate progress
             let progress = if total_size > 0 {
                 ((downloaded as f64 / total_size as f64) * 100.0) as u8
             } else {
                 0
             };
 
-            // Report progress every 1% or every 2 seconds for better UI responsiveness
             let time_since_last_report = last_report_time.elapsed().as_secs();
             if progress >= last_progress_report + 1 || progress == 100 || time_since_last_report >= 2 {
-                log::info!("Download progress: {}% ({:.1} MB / {:.1} MB)",
-                         progress,
-                         downloaded as f64 / (1024.0 * 1024.0),
-                         total_size as f64 / (1024.0 * 1024.0));
-
-                // Update progress in model info
-                {
-                    let mut models = self.available_models.write().await;
-                    if let Some(model_info) = models.get_mut(model_name) {
-                        model_info.status = ModelStatus::Downloading { progress };
-                    }
+                let mut models = self.available_models.write().await;
+                if let Some(model_info) = models.get_mut(model_name) {
+                    model_info.status = ModelStatus::Downloading { progress };
                 }
 
-                // Call progress callback
                 if let Some(ref callback) = progress_callback {
                     callback(progress);
                 }
@@ -1053,79 +1100,595 @@ impl WhisperEngine {
             }
         }
 
-        log::info!("Streaming download completed: {} bytes", downloaded);
-        
-        // Ensure 100% progress is always reported
         {
             let mut models = self.available_models.write().await;
             if let Some(model_info) = models.get_mut(model_name) {
                 model_info.status = ModelStatus::Downloading { progress: 100 };
             }
         }
-        
+
         if let Some(ref callback) = progress_callback {
             callback(100);
         }
-        
-        file.flush().await
+
+        file.flush()
+            .await
             .map_err(|e| anyhow!("Failed to flush file: {}", e))?;
-        
-        log::info!("Download completed for model: {}", model_name);
-        
-        // Update model status to available
-        {
-            let mut models = self.available_models.write().await;
-            if let Some(model_info) = models.get_mut(model_name) {
-                model_info.status = ModelStatus::Available;
-                model_info.path = file_path.clone();
-            }
+
+        if active_download.cancellation.is_cancelled() {
+            return Err(DownloadCancelled.into());
         }
 
-        // Remove from active downloads on completion
-        {
-            let mut active = self.active_downloads.write().await;
-            active.remove(model_name);
-        }
 
         Ok(())
     }
-    
-    pub async fn cancel_download(&self, model_name: &str) -> Result<()> {
+
+    pub async fn cancel_download(&self, model_name: &str) -> Result<CancelDownloadOutcome> {
+        self.cancel_download_with_timeout(model_name, CANCEL_DOWNLOAD_CLEANUP_TIMEOUT)
+            .await
+    }
+
+    async fn cancel_download_with_timeout(
+        &self,
+        model_name: &str,
+        cleanup_timeout: Duration,
+    ) -> Result<CancelDownloadOutcome> {
         log::info!("Cancelling download for model: {}", model_name);
 
-        // Set cancellation flag to interrupt the download loop
-        {
-            let mut cancel_flag = self.cancel_download_flag.write().await;
-            *cancel_flag = Some(model_name.to_string());
-        }
+        let Some(active_download) = self.active_downloads.lock().await.get(model_name).cloned() else {
+            return Ok(CancelDownloadOutcome::Cancelled);
+        };
 
-        // Remove from active downloads
-        {
-            let mut active = self.active_downloads.write().await;
-            active.remove(model_name);
-        }
+        active_download.cancellation.cancel();
 
-        // Update model status to Missing (so it can be retried)
-        {
-            let mut models = self.available_models.write().await;
-            if let Some(model_info) = models.get_mut(model_name) {
-                model_info.status = ModelStatus::Missing;
+        let mut completion = active_download.completion.subscribe();
+        if !*completion.borrow() {
+            match tokio::time::timeout(cleanup_timeout, completion.changed()).await {
+                Ok(Ok(())) => {}
+                Ok(Err(_)) => {
+                    return Err(anyhow!("Download worker ended before completing cancellation cleanup"));
+                }
+                Err(_) => {
+                    return Ok(CancelDownloadOutcome::Pending);
+                }
             }
         }
 
-        // Clean up partially downloaded files
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await; // Brief delay to let download loop detect cancellation
+        Ok(CancelDownloadOutcome::Cancelled)
+    }
+}
 
-        let filename = format!("ggml-{}.bin", model_name);
-        let file_path = self.models_dir.join(&filename);
-        if file_path.exists() {
-            if let Err(e) = fs::remove_file(&file_path).await {
-                log::warn!("Failed to clean up cancelled download file: {}", e);
-            } else {
-                log::info!("Cleaned up cancelled download file: {}", file_path.display());
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::oneshot;
+    use tokio::time::{timeout, Duration};
+
+    fn tiny_model(models: &[ModelInfo]) -> &ModelInfo {
+        models
+            .iter()
+            .find(|model| model.name == "tiny")
+            .expect("tiny should be present in the Whisper model catalog")
+    }
+
+    #[tokio::test]
+    async fn discover_models_keeps_active_downloads_downloading_before_a_file_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+
+        let _active_download = engine.reserve_active_download("tiny").await.unwrap();
+        engine.available_models.write().await.insert(
+            "tiny".to_string(),
+            ModelInfo {
+                name: "tiny".to_string(),
+                path: dir.path().join("ggml-tiny.bin"),
+                size_mb: 75,
+                accuracy: "Basic".to_string(),
+                speed: "Fast".to_string(),
+                status: ModelStatus::Downloading { progress: 42 },
+                description: "test model".to_string(),
+                languages: Vec::new(),
+            },
+        );
+
+        let absent = engine.discover_models().await.unwrap();
+        assert!(matches!(
+            tiny_model(&absent).status,
+            ModelStatus::Downloading { progress: 42 }
+        ));
+
+        std::fs::write(dir.path().join("ggml-tiny.bin"), b"").unwrap();
+        let zero_byte = engine.discover_models().await.unwrap();
+        assert!(matches!(
+            tiny_model(&zero_byte).status,
+            ModelStatus::Downloading { progress: 42 }
+        ));
+
+        std::fs::write(dir.path().join("ggml-tiny.bin"), [0_u8; 32]).unwrap();
+        let partial = engine.discover_models().await.unwrap();
+        assert!(matches!(
+            tiny_model(&partial).status,
+            ModelStatus::Downloading { progress: 42 }
+        ));
+    }
+
+    #[tokio::test]
+    async fn discover_models_uses_disk_state_after_a_download_is_no_longer_active() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+
+        let model_path = dir.path().join("ggml-tiny.bin");
+        std::fs::write(&model_path, b"").unwrap();
+        let missing_models = engine.discover_models().await.unwrap();
+        assert!(matches!(tiny_model(&missing_models).status, ModelStatus::Missing));
+
+        std::fs::write(&model_path, vec![0_u8; 2 * 1024 * 1024]).unwrap();
+        let corrupted_models = engine.discover_models().await.unwrap();
+
+        assert!(matches!(
+            tiny_model(&corrupted_models).status,
+            ModelStatus::Corrupted { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn finish_download_publishes_available_after_releasing_active_owner() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        let model_path = dir.path().join("ggml-tiny.bin");
+
+        std::fs::write(&model_path, b"ggml\0\0\0\0").unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&model_path)
+            .unwrap()
+            .set_len(68 * 1024 * 1024)
+            .unwrap();
+
+        engine.discover_models().await.unwrap();
+        let active_download = engine.reserve_active_download("tiny").await.unwrap();
+        let active_models = engine.discover_models().await.unwrap();
+        assert!(matches!(
+            tiny_model(&active_models).status,
+            ModelStatus::Downloading { progress: 0 }
+        ));
+
+        engine
+            .finish_download("tiny", &active_download, &model_path, Ok(()))
+            .await
+            .unwrap();
+
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+        assert!(matches!(
+            engine
+                .available_models
+                .read()
+                .await
+                .get("tiny")
+                .expect("tiny should remain cached")
+                .status,
+            ModelStatus::Available
+        ));
+
+        let rediscovered_models = engine.discover_models().await.unwrap();
+        assert!(matches!(
+            tiny_model(&rediscovered_models).status,
+            ModelStatus::Available
+        ));
+    }
+
+    #[tokio::test]
+    async fn finish_download_rejects_invalid_header_and_cleans_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        let model_path = dir.path().join("ggml-tiny.bin");
+        std::fs::write(&model_path, b"not-a-model").unwrap();
+
+        engine.discover_models().await.unwrap();
+        let active_download = engine.reserve_active_download("tiny").await.unwrap();
+        let error = engine
+            .finish_download("tiny", &active_download, &model_path, Ok(()))
+            .await
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("Invalid model file: missing GGML/GGUF magic number"));
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+        assert!(!model_path.exists());
+        assert!(matches!(
+            engine
+                .available_models
+                .read()
+                .await
+                .get("tiny")
+                .expect("tiny should remain cached")
+                .status,
+            ModelStatus::Missing
+        ));
+    }
+
+    #[tokio::test]
+    async fn unsupported_download_does_not_leave_an_active_transfer() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+
+        assert!(engine.download_model("not-a-model", None).await.is_err());
+        assert!(!engine.active_downloads.lock().await.contains_key("not-a-model"));
+    }
+
+    #[tokio::test]
+    async fn duplicate_download_reservation_is_rejected_while_the_first_owner_is_active() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+
+        let _first_owner = engine.reserve_active_download("tiny").await.unwrap();
+        assert!(engine.reserve_active_download("tiny").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn cancelled_finalization_holds_active_ownership_before_discovery() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = Arc::new(WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap());
+        engine.discover_models().await.unwrap();
+
+        let active_download = engine.reserve_active_download("tiny").await.unwrap();
+        active_download.cancellation.cancel();
+
+        let hook = Arc::new(DownloadStateTestHook {
+            cancellation_first_lock_acquired: tokio::sync::Notify::new(),
+            continue_cancellation: tokio::sync::Notify::new(),
+            discovery_active_lock_acquired: tokio::sync::Notify::new(),
+            continue_discovery: tokio::sync::Notify::new(),
+        });
+        *engine.download_state_test_hook.lock().unwrap() = Some(Arc::clone(&hook));
+
+        let finalization_engine = Arc::clone(&engine);
+        let finalization_owner = Arc::clone(&active_download);
+        let model_path = dir.path().join("ggml-tiny.bin");
+        let finalization = tokio::spawn(async move {
+            finalization_engine
+                .finish_download(
+                    "tiny",
+                    &finalization_owner,
+                    &model_path,
+                    Err(DownloadCancelled.into()),
+                )
+                .await
+        });
+
+        timeout(
+            Duration::from_secs(1),
+            hook.cancellation_first_lock_acquired.notified(),
+        )
+        .await
+        .expect("cancellation finalization should reach its first lock");
+
+        let discovery_engine = Arc::clone(&engine);
+        let discovery = tokio::spawn(async move { discovery_engine.discover_models().await });
+
+        assert!(
+            timeout(
+                Duration::from_millis(100),
+                hook.discovery_active_lock_acquired.notified(),
+            )
+            .await
+            .is_err(),
+            "discovery must wait for cancellation to release active ownership"
+        );
+
+        hook.continue_cancellation.notify_one();
+        let finalization_result = timeout(Duration::from_secs(1), finalization)
+            .await
+            .expect("cancelled finalization should complete")
+            .unwrap()
+            .unwrap_err();
+        assert!(is_download_cancelled(&finalization_result));
+
+        timeout(
+            Duration::from_secs(1),
+            hook.discovery_active_lock_acquired.notified(),
+        )
+        .await
+        .expect("discovery should acquire active ownership after cancellation finalizes");
+        hook.continue_discovery.notify_one();
+
+        let models = timeout(Duration::from_secs(1), discovery)
+            .await
+            .expect("discovery should complete")
+            .unwrap()
+            .unwrap();
+        assert!(matches!(tiny_model(&models).status, ModelStatus::Missing));
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+    }
+
+    #[tokio::test]
+    async fn cancelling_an_unresponsive_download_keeps_ownership_reserved() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        let active_download = engine.reserve_active_download("tiny").await.unwrap();
+
+        let outcome = engine
+            .cancel_download_with_timeout("tiny", Duration::from_millis(1))
+            .await
+            .expect("an unresponsive download should report cancellation pending");
+
+        assert_eq!(outcome, CancelDownloadOutcome::Pending);
+        assert!(active_download.cancellation.is_cancelled());
+        assert!(matches!(
+            engine.active_downloads.lock().await.get("tiny"),
+            Some(current) if Arc::ptr_eq(current, &active_download)
+        ));
+        assert!(engine.reserve_active_download("tiny").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn late_cancellation_preserves_a_completed_model_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        let model_path = dir.path().join("ggml-tiny.bin");
+
+        std::fs::write(&model_path, b"ggml\0\0\0\0").unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&model_path)
+            .unwrap()
+            .set_len(68 * 1024 * 1024)
+            .unwrap();
+
+        engine.discover_models().await.unwrap();
+        let active_download = engine.reserve_active_download("tiny").await.unwrap();
+        engine
+            .finish_download("tiny", &active_download, &model_path, Ok(()))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            engine
+                .cancel_download_with_timeout("tiny", Duration::from_millis(1))
+                .await
+                .unwrap(),
+            CancelDownloadOutcome::Cancelled
+        );
+        assert!(matches!(
+            tiny_model(&engine.discover_models().await.unwrap()).status,
+            ModelStatus::Available
+        ));
+    }
+
+    async fn stalled_http_server(
+    ) -> (
+        String,
+        oneshot::Receiver<()>,
+        oneshot::Sender<()>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (headers_sent, headers_ready) = oneshot::channel();
+        let (release_body, body_released) = oneshot::channel();
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            socket.read(&mut request).await.unwrap();
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            socket.flush().await.unwrap();
+            headers_sent.send(()).unwrap();
+            let _ = body_released.await;
+            let _ = socket.write_all(b"test").await;
+        });
+
+        (format!("http://{address}/model.bin"), headers_ready, release_body, server)
+    }
+
+    async fn response_http_server(
+        content_length: usize,
+        body: &'static [u8],
+    ) -> (
+        String,
+        oneshot::Receiver<Vec<u8>>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (request_sent, request_received) = oneshot::channel();
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 1024];
+            loop {
+                let bytes_read = socket.read(&mut buffer).await.unwrap();
+                if bytes_read == 0 {
+                    break;
+                }
+
+                request.extend_from_slice(&buffer[..bytes_read]);
+                if request.ends_with(b"\r\n\r\n") {
+                    break;
+                }
             }
-        }
+            request_sent.send(request).unwrap();
 
-        Ok(())
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {content_length}\r\nConnection: close\r\n\r\n"
+            );
+            socket.write_all(headers.as_bytes()).await.unwrap();
+            socket.write_all(body).await.unwrap();
+            socket.flush().await.unwrap();
+        });
+
+        (format!("http://{address}/model.bin"), request_received, server)
+    }
+
+    #[tokio::test]
+    async fn downloaded_model_sends_user_agent_and_rejects_undersized_valid_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        engine.discover_models().await.unwrap();
+        let (url, request, server) = response_http_server(8, b"ggml\0\0\0\0").await;
+
+        let error = engine.download_model_from_url("tiny", &url, None).await.unwrap_err();
+        let request = String::from_utf8(request.await.unwrap()).unwrap();
+        server.await.unwrap();
+
+        assert!(error.to_string().contains("too small"));
+        assert!(request.to_ascii_lowercase().contains(&format!(
+            "user-agent: meetily/{}",
+            env!("CARGO_PKG_VERSION")
+        )));
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+        assert!(!dir.path().join("ggml-tiny.bin").exists());
+        assert!(matches!(
+            engine
+                .available_models
+                .read()
+                .await
+                .get("tiny")
+                .expect("tiny should remain cached")
+                .status,
+            ModelStatus::Missing
+        ));
+    }
+
+
+    #[tokio::test]
+    async fn cancelling_a_stalled_download_waits_for_cleanup_before_retry_can_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = Arc::new(WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap());
+        let (url_a, headers_a, release_a, server_a) = stalled_http_server().await;
+
+        let download_a_engine = Arc::clone(&engine);
+        let download_a = tokio::spawn(async move {
+            download_a_engine
+                .download_model_from_url("tiny", &url_a, None)
+                .await
+        });
+
+        timeout(Duration::from_secs(1), headers_a)
+            .await
+            .expect("first request should receive response headers")
+            .unwrap();
+
+        assert!(engine.active_downloads.lock().await.contains_key("tiny"));
+        let status_while_active = engine.discover_models().await.unwrap();
+        assert!(matches!(
+            tiny_model(&status_while_active).status,
+            ModelStatus::Downloading { progress: 0 }
+        ));
+
+        timeout(Duration::from_secs(1), engine.cancel_download("tiny"))
+            .await
+            .expect("cancellation should not wait for a stalled response body")
+            .unwrap();
+
+        let download_a_result = timeout(Duration::from_secs(1), download_a)
+            .await
+            .expect("cancelled worker should finish promptly")
+            .unwrap();
+        assert!(is_download_cancelled(&download_a_result.unwrap_err()));
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+        assert!(!dir.path().join("ggml-tiny.bin").exists());
+
+        let (url_b, headers_b, release_b, server_b) = stalled_http_server().await;
+        let download_b_engine = Arc::clone(&engine);
+        let download_b = tokio::spawn(async move {
+            download_b_engine
+                .download_model_from_url("tiny", &url_b, None)
+                .await
+        });
+        timeout(Duration::from_secs(1), headers_b)
+            .await
+            .expect("retry should reserve the released model slot")
+            .unwrap();
+        assert!(engine.active_downloads.lock().await.contains_key("tiny"));
+
+        timeout(Duration::from_secs(1), engine.cancel_download("tiny"))
+            .await
+            .expect("retry cancellation should also complete promptly")
+            .unwrap();
+        assert!(is_download_cancelled(
+            &timeout(Duration::from_secs(1), download_b)
+                .await
+                .expect("retry worker should finish promptly")
+                .unwrap()
+                .unwrap_err()
+        ));
+
+        let _ = release_a.send(());
+        let _ = release_b.send(());
+        let _ = server_a.await;
+        let _ = server_b.await;
+    }
+
+    #[tokio::test]
+    async fn incomplete_response_cleans_partial_file_and_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        let model_path = dir.path().join("ggml-tiny.bin");
+        engine.discover_models().await.unwrap();
+        let (url, _request, server) = response_http_server(8, b"ggml").await;
+
+        let error = engine
+            .download_model_from_url("tiny", &url, None)
+            .await
+            .unwrap_err();
+        server.await.unwrap();
+
+        assert!(error.to_string().contains("Failed to read chunk"));
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+        assert!(!model_path.exists());
+        assert!(matches!(
+            engine
+                .available_models
+                .read()
+                .await
+                .get("tiny")
+                .expect("tiny should remain cached")
+                .status,
+            ModelStatus::Missing
+        ));
+
+        let models = engine.discover_models().await.unwrap();
+        assert!(matches!(tiny_model(&models).status, ModelStatus::Missing));
+    }
+
+    #[tokio::test]
+    async fn terminal_download_error_releases_the_active_transfer() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = WhisperEngine::new_with_models_dir(Some(dir.path().to_path_buf())).unwrap();
+        let model_path = dir.path().join("ggml-tiny.bin");
+        std::fs::write(&model_path, vec![0_u8; 2 * 1024 * 1024]).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            socket.read(&mut request).await.unwrap();
+            socket
+                .write_all(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n")
+                .await
+                .unwrap();
+        });
+
+        assert!(engine
+            .download_model_from_url("tiny", &format!("http://{address}/model.bin"), None)
+            .await
+            .is_err());
+        server.await.unwrap();
+
+        assert!(!engine.active_downloads.lock().await.contains_key("tiny"));
+        assert!(!model_path.exists());
+        let models = engine.discover_models().await.unwrap();
+        assert!(matches!(tiny_model(&models).status, ModelStatus::Missing));
     }
 }

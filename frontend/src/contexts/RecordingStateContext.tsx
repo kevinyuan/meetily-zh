@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { toast } from 'sonner';
 import i18n from '@/i18n';
 import { recordingService } from '@/services/recordingService';
+import { listen } from '@tauri-apps/api/event';
+import { resolveDeviceLabel } from '@/lib/audioDevices';
 
 /**
  * Recording state synchronized with backend
@@ -46,6 +48,7 @@ interface RecordingStateContextType extends RecordingState {
   isStopping: boolean;
   isProcessing: boolean;
   isSaving: boolean;
+  isStartingRecording: boolean;
 }
 
 const RecordingStateContext = createContext<RecordingStateContextType | null>(null);
@@ -158,6 +161,23 @@ export function RecordingStateProvider({ children }: { children: React.ReactNode
         });
         unsubscribers.push(unlistenStarted);
 
+        // Recording starting (startup in progress)
+        const unlistenStarting = await recordingService.onRecordingStarting(() => {
+          console.log('[RecordingStateContext] Recording starting event');
+          setState(prev => prev.status === RecordingStatus.RECORDING
+            ? prev
+            : { ...prev, status: RecordingStatus.STARTING, statusMessage: 'Starting recording...' });
+        });
+        unsubscribers.push(unlistenStarting);
+
+        const unlistenShutdown = await listen<{ stage: string }>('recording-shutdown-progress', ({ payload }) => {
+          if (payload.stage !== 'stopping_audio') return;
+          setState(prev => (prev.status === RecordingStatus.RECORDING ||
+            (prev.status === RecordingStatus.IDLE && prev.isRecording))
+            ? { ...prev, status: RecordingStatus.STOPPING, statusMessage: 'Stopping recording...' }
+            : prev);
+        });
+        unsubscribers.push(unlistenShutdown);
         // Audio pipeline failure.
         //
         // The backend stops the recording itself once these pile up, but nothing was
@@ -242,6 +262,121 @@ export function RecordingStateProvider({ children }: { children: React.ReactNode
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    listen<{ error: boolean; message: string }>('linux-audio-notice', ({ payload }) => {
+      if (cancelled) return;
+      if (payload.error) toast.error(payload.message, { duration: 8000 });
+      else toast.info(payload.message, { duration: 6000 });
+    }).then(fn => { if (cancelled) fn(); else unlisten = fn; }).catch(console.error);
+    return () => { cancelled = true; unlisten?.(); };
+  }, []);
+
+  /**
+   * Global mic hot-swap UI feedback.
+   *
+   * The Rust backend emits `mic-device-switched` whenever the recording mic
+   * changes without the user picking it — on a successful mid-recording
+   * disconnect fallback, and when a selected mic isn't available at start and
+   * the backend falls back to the default — and `mic-swap-failed` when
+   * mid-recording recovery fails. Nothing else in the app listens for these,
+   * so without this effect the switch is silent (or a dead-mic recording).
+   * Mounting the listener here surfaces a toast regardless of which page the
+   * user is on. Pure UI feedback — no state mutation, no persisted-preference
+   * writes.
+   */
+  // Ref tracks latest isRecording for the mount-once listener below — the
+  // effect has [] deps so it can't read state directly (it would capture the
+  // initial value). Kept current by this small sync effect.
+  const isRecordingRef = useRef(false);
+  useEffect(() => {
+    isRecordingRef.current = state.isRecording;
+  }, [state.isRecording]);
+
+  useEffect(() => {
+    // `cancelled` guard prevents leaking a listener when StrictMode/HMR runs
+    // cleanup before the async listen(...) registration resolves.
+    let cancelled = false;
+    let unlistenSwitched: (() => void) | undefined;
+    let unlistenFailed: (() => void) | undefined;
+    let unlistenMicUnavailable: (() => void) | undefined;
+    let unlistenExhausted: (() => void) | undefined;
+
+    const setup = async () => {
+      try {
+        const fnSwitched = await recordingService.onMicDeviceSwitched(async ({ device_name, device_label }) => {
+          console.log('[RecordingStateContext] mic-device-switched →', device_name);
+          const label = device_label || await resolveDeviceLabel(device_name);
+          // Fires for both cases: a mic that disconnects mid-recording, and a
+          // selected mic that wasn't available at start (backend fell back to
+          // the default). Copy is worded to be accurate for both.
+          toast.info(
+            `Microphone switched to ${label} for this meeting.`,
+            { duration: 6000 }
+          );
+        });
+        if (cancelled) { fnSwitched(); return; }
+        unlistenSwitched = fnSwitched;
+
+        const fnFailed = await recordingService.onMicSwapFailed(async ({ error, device_name, device_label }) => {
+          console.error('[RecordingStateContext] mic-swap-failed →', device_name, error);
+          const label = device_label || await resolveDeviceLabel(device_name);
+          // Only alarm the user if recording is still active. A Stop clicked
+          // during a hot-swap race fails with "Recording manager not
+          // available" — expected, not an error worth a toast.
+          if (isRecordingRef.current) {
+            toast.error(
+              `Microphone fallback failed for ${label}: ${error}`,
+              { duration: 8000 }
+            );
+          }
+        });
+        if (cancelled) { fnFailed(); return; }
+        unlistenFailed = fnFailed;
+
+        const fnUnavailable = await recordingService.onMicUnavailable(() => {
+          console.log('[RecordingStateContext] mic-unavailable');
+          // Fires at recording start, before isRecording flips true, so this
+          // is intentionally NOT gated by isRecordingRef.
+          toast.error(
+            'No microphone available — recording system audio only.',
+            { duration: 8000 }
+          );
+        });
+        if (cancelled) { fnUnavailable(); return; }
+        unlistenMicUnavailable = fnUnavailable;
+
+        const fnExhausted = await recordingService.onMicRecoveryExhausted(async ({ device_name, device_label }) => {
+          console.error('[RecordingStateContext] mic-recovery-exhausted →', device_name);
+          const label = device_label || await resolveDeviceLabel(device_name);
+          // Fires mid-recording only — gate on the recording ref like
+          // mic-swap-failed so a stale event after Stop doesn't alarm the user.
+          if (isRecordingRef.current) {
+            toast.error(
+              `Microphone '${label}' could not be recovered — recording continues without a microphone. Stop and restart to fix.`,
+              { duration: 10000 }
+            );
+          }
+        });
+        if (cancelled) { fnExhausted(); return; }
+        unlistenExhausted = fnExhausted;
+      } catch (e) {
+        console.error('[RecordingStateContext] Failed to set up hot-swap listeners:', e);
+      }
+    };
+
+    setup();
+
+    return () => {
+      cancelled = true;
+      unlistenSwitched?.();
+      unlistenFailed?.();
+      unlistenMicUnavailable?.();
+      unlistenExhausted?.();
+    };
+  }, []);
+
   /**
    * Initial sync on mount - CRITICAL for fixing refresh desync bug
    * If backend is recording but UI state is false, this will correct it
@@ -258,6 +393,7 @@ export function RecordingStateProvider({ children }: { children: React.ReactNode
     isStopping: state.status === RecordingStatus.STOPPING,
     isProcessing: state.status === RecordingStatus.PROCESSING_TRANSCRIPTS,
     isSaving: state.status === RecordingStatus.SAVING,
+    isStartingRecording: state.status === RecordingStatus.STARTING,
   }), [state, setStatus]);
 
   return (

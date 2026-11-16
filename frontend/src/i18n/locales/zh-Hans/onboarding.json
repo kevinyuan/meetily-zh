@@ -31,6 +31,7 @@
       "transcriptionSize": "约 236 MB",
       "waiting": "等待中…",
       "failed": "失败",
+      "cancelledTitle": "下载已取消",
       "errorTitle": "下载出错",
       "tryAgain": "重试",
       "continue": "继续",

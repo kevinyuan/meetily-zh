@@ -5,10 +5,13 @@ import { FolderOpen } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { DeviceSelection, SelectedDevices } from '@/components/DeviceSelection';
 import Analytics from '@/lib/analytics';
+import { cachedDeviceLabel } from '@/lib/audioDevices';
 import { toast } from 'sonner';
+import { useRecordingState } from '@/contexts/RecordingStateContext';
 import { useConfig } from '@/contexts/ConfigContext';
 
 export interface RecordingPreferences {
+  device_selection_version: [number, number];
   save_folder: string;
   auto_save: boolean;
   file_format: string;
@@ -49,6 +52,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     save_folder: '',
     auto_save: true,
     file_format: 'mp4',
+    device_selection_version: [1, 1],
     preferred_mic_device: null,
     preferred_system_device: null,
     vad_redemption_ms: VAD_REDEMPTION_DEFAULT_MS,
@@ -57,6 +61,8 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showRecordingNotification, setShowRecordingNotification] = useState(true);
+  const { isRecording } = useRecordingState();
+  const { setSelectedDevices } = useConfig();
 
   // Load recording preferences on component mount
   useEffect(() => {
@@ -66,6 +72,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
         setPreferences(prefs);
       } catch (error) {
         console.error('Failed to load recording preferences:', error);
+        toast.error(t('settingsArea.recording.toast.loadFailed'), { description: String(error) });
         // If loading fails, get default folder path
         try {
           const defaultPath = await invoke<string>('get_default_recordings_folder_path');
@@ -126,12 +133,21 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
   };
 
   const handleDeviceChange = async (devices: SelectedDevices) => {
-    const newPreferences = {
+    const newPreferences: RecordingPreferences = {
       ...preferences,
+      device_selection_version: [
+        devices.micDevice !== preferences.preferred_mic_device ? 1 : preferences.device_selection_version[0],
+        devices.systemDevice !== preferences.preferred_system_device ? 1 : preferences.device_selection_version[1],
+      ],
       preferred_mic_device: devices.micDevice,
       preferred_system_device: devices.systemDevice
     };
     setPreferences(newPreferences);
+    // Sync the in-memory selection ConfigContext exposes to the start path.
+    // Without this, the picker only writes to disk (loaded into context once at
+    // app mount), so a newly-chosen mic isn't honored until the next launch —
+    // start keeps sending the stale launch-time device.
+    setSelectedDevices(devices);
     await savePreferences(newPreferences);
 
     // Track default device preference changes
@@ -174,13 +190,16 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     if (!options?.silent) setSaving(true);
     try {
       await invoke('set_recording_preferences', { preferences: prefs });
-      onSave?.(prefs);
+      const saved = await invoke<RecordingPreferences>('get_recording_preferences');
+      setPreferences(saved);
+      setSelectedDevices({ micDevice: saved.preferred_mic_device, systemDevice: saved.preferred_system_device });
+      onSave?.(saved);
 
       if (options?.silent) return;
 
       // Show success toast with device details
-      const micDevice = prefs.preferred_mic_device || t('settingsArea.common.defaultDevice');
-      const systemDevice = prefs.preferred_system_device || t('settingsArea.common.defaultDevice');
+      const micDevice = prefs.preferred_mic_device ? cachedDeviceLabel(prefs.preferred_mic_device) : t('settingsArea.common.defaultDevice');
+      const systemDevice = prefs.preferred_system_device ? cachedDeviceLabel(prefs.preferred_system_device) : t('settingsArea.common.defaultDevice');
       toast.success(t('settingsArea.recording.toast.devicePreferencesSaved'), {
         description: t('settingsArea.recording.toast.devicePreferencesDescription', {
           microphone: micDevice,
@@ -290,6 +309,16 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
             {t('settingsArea.recording.devices.description')}
           </p>
 
+          {isRecording && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 mb-4"
+            >
+              {t('settingsArea.recording.devicesLocked')}
+            </p>
+          )}
+
           <div className="border rounded-lg p-4 bg-gray-50">
             <DeviceSelection
               selectedDevices={{
@@ -297,7 +326,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
                 systemDevice: preferences.preferred_system_device
               }}
               onDeviceChange={handleDeviceChange}
-              disabled={saving}
+              disabled={saving || isRecording}
             />
           </div>
         </div>

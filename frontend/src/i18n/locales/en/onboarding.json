@@ -31,6 +31,7 @@
       "transcriptionSize": "~236 MB",
       "waiting": "Waiting...",
       "failed": "Failed",
+      "cancelledTitle": "Download cancelled",
       "errorTitle": "Download Error",
       "tryAgain": "Try Again",
       "continue": "Continue",

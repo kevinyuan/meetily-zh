@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { toast } from 'sonner';
 import { TranscriptModelProps } from '@/components/TranscriptSettings';
 import i18n from '@/i18n';
+import type { TranscriptionErrorPayload } from '@/services/transcriptService';
 
 export type ModalType =
   | 'modelSettings'
@@ -133,7 +134,7 @@ export function useModalState(transcriptModelConfig?: TranscriptModelProps): Use
     const setupTranscriptionErrorListener = async () => {
       try {
         console.log('Setting up transcription-error listener...');
-        unlistenFn = await listen<{ error: string, userMessage: string, actionable: boolean }>('transcription-error', (event) => {
+        unlistenFn = await listen<TranscriptionErrorPayload>('transcription-error', (event) => {
           console.log('Transcription error received:', event.payload);
           const { userMessage, actionable } = event.payload;
 

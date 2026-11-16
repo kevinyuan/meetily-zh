@@ -81,7 +81,8 @@
         "preferenceSaveFailed": "偏好设置保存失败",
         "devicePreferencesSaved": "设备偏好已保存",
         "devicePreferencesDescription": "麦克风：{{microphone}}，系统音频：{{systemAudio}}",
-        "devicePreferencesFailed": "设备偏好保存失败"
+        "devicePreferencesFailed": "设备偏好保存失败",
+        "loadFailed": "无法加载录音偏好设置"
       },
       "segmentation": {
         "title": "转录如何断行",
@@ -100,7 +101,8 @@
         "pauseLength": "开始转录前的停顿",
         "pauseLengthHelpPunctuation": "静音多久之后才把音频送去识别。这决定了**出字的快慢**——说话人不停顿到这个时长，就什么都不会转录。断行仍然由标点决定。",
         "pauseLengthHelpPause": "静音多久之后结束这一行并送去识别。它同时决定了断行位置和出字快慢。"
-      }
+      },
+      "devicesLocked": "录音进行中，设备选择已锁定。录音过程中接入新设备不会自动切换，请先结束当前会议再更改设备。"
     },
     "summary": {
       "autoSummary": {
@@ -337,7 +339,8 @@
         "levelsText": "绿色 = 正常，黄色 = 偏大，红色 = 过大",
         "tipLabel": "提示：",
         "tipText": "点击“测试麦克风”即可检查麦克风是否正常工作"
-      }
+      },
+      "unavailableChooseDevice": "不可用，请重新选择设备"
     },
     "audioBackend": {
       "title": "系统音频后端",

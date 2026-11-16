@@ -7,7 +7,6 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 - Real-time audio recording from both microphone and system audio
 - Live transcription using Whisper ASR (locally running)
 - Native desktop integration using Tauri
-- Speaker diarization support
 - Rich text editor for note-taking
 - Privacy-focused: All processing happens locally
 
@@ -16,13 +15,13 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 ### For macOS:
 - Node.js (v18 or later)
 - Rust (latest stable)
-- pnpm (v8 or later)
+- pnpm (v9.15.9)
 - [Xcode Command Line Tools](https://developer.apple.com/download/all/?q=xcode)
 
 ### For Windows:
 - Node.js (v18 or later)
 - Rust (latest stable)
-- pnpm (v8 or later)
+- pnpm (v9.15.9)
 - Visual Studio Build Tools with C++ development tools
 - Windows 10 or later
 
@@ -39,6 +38,8 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 
 ## Installation
 
+Use `pnpm install --frozen-lockfile` to install the committed dependency set. When intentionally changing dependencies, update and commit `pnpm-lock.yaml`; frozen installation fails when it is out of sync.
+
 ### For macOS:
 
 1. Install prerequisites:
@@ -53,7 +54,7 @@ A modern desktop application for recording, transcribing, and analyzing meetings
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    
    # Install pnpm
-   npm install -g pnpm
+   npm install -g pnpm@9.15.9
    
    # Install Xcode Command Line Tools
    xcode-select --install
@@ -68,7 +69,7 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 
 3. Install dependencies:
    ```bash
-   pnpm install
+   pnpm install --frozen-lockfile
    ```
 
 ### For Windows:
@@ -76,7 +77,7 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 1. Install prerequisites:
    - Install [Node.js](https://nodejs.org/) (v18 or later)
    - Install [Rust](https://www.rust-lang.org/tools/install)
-   - Install pnpm: `npm install -g pnpm`
+   - Install pnpm: `npm install -g pnpm@9.15.9`
    - Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with C++ development tools
 
 2. Clone the repository and navigate to the frontend directory:
@@ -87,7 +88,7 @@ A modern desktop application for recording, transcribing, and analyzing meetings
 
 3. Install dependencies:
    ```cmd
-   pnpm install
+   pnpm install --frozen-lockfile
    ```
 
 ## Running the App

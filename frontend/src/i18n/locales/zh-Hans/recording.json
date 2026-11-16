@@ -166,6 +166,7 @@
         "title": "转录模型尚未就绪",
         "description": "请先下载转录模型，然后再开始录音。"
       },
+      "startTimedOut": "开始录音超时，请重试",
       "modelSetupRequired": "需要先设置转录模型",
       "summaryLanguageApplyFailed": {
         "title": "无法应用默认摘要语言",

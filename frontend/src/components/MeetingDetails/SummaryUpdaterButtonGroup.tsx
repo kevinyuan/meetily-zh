@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, Save, Loader2, Search, FolderOpen } from 'lucide-react';
+import { Copy, Save, Loader2 } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { useTranslation } from 'react-i18next';
 
@@ -11,9 +11,6 @@ interface SummaryUpdaterButtonGroupProps {
   isDirty: boolean;
   onSave: () => Promise<void>;
   onCopy: () => Promise<void>;
-  onFind?: () => void;
-  onOpenFolder: () => Promise<void>;
-  hasSummary: boolean;
 }
 
 export function SummaryUpdaterButtonGroup({
@@ -21,9 +18,6 @@ export function SummaryUpdaterButtonGroup({
   isDirty,
   onSave,
   onCopy,
-  onFind,
-  onOpenFolder,
-  hasSummary
 }: SummaryUpdaterButtonGroupProps) {
   const { t } = useTranslation();
 
@@ -44,12 +38,12 @@ export function SummaryUpdaterButtonGroup({
         {isSaving ? (
           <>
             <Loader2 className="animate-spin" />
-            <span className="hidden lg:inline">{t('meetingArea.updater.saving')}</span>
+            <span className="hidden @[40rem]:inline">{t('meetingArea.updater.saving')}</span>
           </>
         ) : (
           <>
             <Save />
-            <span className="hidden lg:inline">{t('meetingArea.updater.save')}</span>
+            <span className="hidden @[40rem]:inline">{t('meetingArea.updater.save')}</span>
           </>
         )}
       </Button>
@@ -63,30 +57,12 @@ export function SummaryUpdaterButtonGroup({
           Analytics.trackButtonClick('copy_summary', 'meeting_details');
           onCopy();
         }}
-        disabled={!hasSummary}
         className="cursor-pointer"
       >
         <Copy />
-        <span className="hidden lg:inline">{t('meetingArea.updater.copy')}</span>
+        <span className="hidden @[40rem]:inline">{t('meetingArea.updater.copy')}</span>
       </Button>
 
-      {/* Find button */}
-      {/* {onFind && (
-        <Button
-          variant="outline"
-          size="sm"
-          title="Find in Summary"
-          onClick={() => {
-            Analytics.trackButtonClick('find_in_summary', 'meeting_details');
-            onFind();
-          }}
-          disabled={!hasSummary}
-          className="cursor-pointer"
-        >
-          <Search />
-          <span className="hidden lg:inline">Find</span>
-        </Button>
-      )} */}
     </ButtonGroup>
   );
 }

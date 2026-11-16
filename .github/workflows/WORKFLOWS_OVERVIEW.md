@@ -62,7 +62,7 @@ This document provides a quick overview of all available CI/CD workflows in this
 
 **Use When:**
 - Windows-specific development
-- Testing CUDA/Vulkan GPU acceleration
+- Testing Vulkan GPU acceleration
 - Verifying Windows-specific features
 
 **Outputs:**
@@ -298,6 +298,7 @@ All workflows require these secrets to be configured:
 
 ### Application Configuration
 - `MEETILY_RSA_PUBLIC_KEY` - License validation public key
+- `MEETILY_DOODLE_URL` - Seasonal sidebar icon URL (repository variable, not a secret; unset = feature off)
 - `SUPABASE_URL` - Online license verification
 - `SUPABASE_ANON_KEY` - Supabase anonymous key
 

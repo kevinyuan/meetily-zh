@@ -81,7 +81,8 @@
         "preferenceSaveFailed": "Failed to save preference",
         "devicePreferencesSaved": "Device preferences saved",
         "devicePreferencesDescription": "Microphone: {{microphone}}, System Audio: {{systemAudio}}",
-        "devicePreferencesFailed": "Failed to save device preferences"
+        "devicePreferencesFailed": "Failed to save device preferences",
+        "loadFailed": "Could not load recording preferences"
       },
       "segmentation": {
         "title": "How the transcript is split into lines",
@@ -100,7 +101,8 @@
         "pauseLength": "Pause before transcribing",
         "pauseLengthHelpPunctuation": "How long a silence must last before the audio is sent to the model. This sets how quickly text appears: nothing is transcribed until the speaker pauses this long. Lines are still split on punctuation.",
         "pauseLengthHelpPause": "How long a silence must last before the line ends and the audio is transcribed. It sets both where lines break and how quickly text appears."
-      }
+      },
+      "devicesLocked": "Device selection is locked while a recording is in progress. Connecting a new device mid-recording will not switch to it. Stop the current meeting to change devices."
     },
     "summary": {
       "autoSummary": {
@@ -337,7 +339,8 @@
         "levelsText": "Green = good, Yellow = loud, Red = too loud",
         "tipLabel": "Tip:",
         "tipText": "Click \"Test Mic\" to check if your microphone is working"
-      }
+      },
+      "unavailableChooseDevice": "choose a device"
     },
     "audioBackend": {
       "title": "System Audio Backend",

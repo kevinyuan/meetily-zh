@@ -213,7 +213,7 @@ jobs:
           # Check environment variables
           Write-Host "Environment Variables:"
           Write-Host "  SM_HOST: $env:SM_HOST"
-          Write-Host "  SM_API_KEY: $($env:SM_API_KEY.Substring(0, [Math]::Min(20, $env:SM_API_KEY.Length)))..."
+          Write-Host "  SM_API_KEY: $(if ($env:SM_API_KEY) { '***SET***' } else { 'NOT SET' })"
           Write-Host "  SM_CLIENT_CERT_FILE: $env:SM_CLIENT_CERT_FILE"
           Write-Host "  SM_CLIENT_CERT_PASSWORD: $(if ($env:SM_CLIENT_CERT_PASSWORD) { '***SET***' } else { 'NOT SET' })"
           Write-Host ""
@@ -254,7 +254,7 @@ jobs:
           Write-Host ""
           Write-Host "Environment Configuration:"
           Write-Host "  SM_HOST: $($env:SM_HOST ?? 'NOT SET')"
-          Write-Host "  SM_API_KEY: $(if ($env:SM_API_KEY) { $env:SM_API_KEY.Substring(0, [Math]::Min(20, $env:SM_API_KEY.Length)) + '...' } else { 'NOT SET' })"
+          Write-Host "  SM_API_KEY: $(if ($env:SM_API_KEY) { '***SET***' } else { 'NOT SET' })"
           Write-Host "  SM_CLIENT_CERT_FILE: $($env:SM_CLIENT_CERT_FILE ?? 'NOT SET')"
           Write-Host "  SM_CODE_SIGNING_CERT_SHA1_HASH: $($env:SM_CODE_SIGNING_CERT_SHA1_HASH ?? 'NOT SET')"
 
@@ -474,7 +474,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 9.15.9
           run_install: false
 
       - name: Setup Node
@@ -495,15 +495,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust 1.99.1
+        # Pinned: Rust 1.100's cargo moved build-script OUT_DIR one level deeper; tauri-build 2.6.1 and ort-sys 2.0.0-rc.10 assume the old depth. Unpin after upgrading to tauri-build >= 2.7 and ort >= 2.0.0-rc.14.
+        uses: dtolnay/rust-toolchain@1.99.1
         with:
           targets: x86_64-pc-windows-msvc
+
+      - name: Configure portable Windows native build
+        id: windows-portability
+        shell: pwsh
+        env:
+          PORTABLE_BUILD_PROFILE: ${{ steps.build-profile.outputs.profile }}
+        run: |
+          $cmakeHook = (Join-Path $env:GITHUB_WORKSPACE ".github/force-portable-ggml.cmake").Replace('\', '/')
+          "CMAKE_PROJECT_INCLUDE=$cmakeHook" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RUSTFLAGS=-C target-cpu=x86-64-v2" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $buildDirectory = "target/x86_64-pc-windows-msvc/$env:PORTABLE_BUILD_PROFILE"
+          $configPath = (Join-Path $env:RUNNER_TEMP "tauri.windows-portable.conf.json").Replace('\', '/')
+          @{
+            build = @{
+              beforeBundleCommand = @{
+                script = "node .github/verify-portable-ggml.cjs $buildDirectory"
+                cwd = $env:GITHUB_WORKSPACE
+              }
+            }
+          } | ConvertTo-Json -Depth 4 | Set-Content -Path $configPath -Encoding utf8
+          "args=--config `"$configPath`"" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+          prefix-key: windows-portable-v1
           key: windows-x64-vulkan-v2
 
       - name: Install Vulkan SDK
@@ -635,7 +659,7 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd frontend
-          pnpm install
+          pnpm install --frozen-lockfile
 
       - name: Build llama-helper sidecar
         shell: pwsh
@@ -646,6 +670,8 @@ jobs:
           # llama-helper is for LLM inference and works fine on CPU
           Write-Host "Building llama-helper sidecar (CPU-only)..."
 
+          # llama.cpp's bundled cpp-httplib does not compile against OpenSSL 4 (const X509_NAME); the helper never uses HTTPS, so build it without OpenSSL.
+          $env:CMAKE_DISABLE_FIND_PACKAGE_OpenSSL = "TRUE"
           cargo build --release -p llama-helper
 
           if ($LASTEXITCODE -ne 0) {
@@ -665,6 +691,12 @@ jobs:
         with:
           path: frontend/src-tauri/binaries/ffmpeg-*.exe
           key: ${{ runner.os }}-ffmpeg-${{ hashFiles('frontend/src-tauri/build.rs', 'frontend/src-tauri/build/ffmpeg.rs') }}
+      - name: Cache Windows ONNX Runtime
+        uses: actions/cache@v4
+        with:
+          path: frontend/src-tauri/binaries/onnxruntime
+          key: ${{ runner.os }}-onnxruntime-x86_64-pc-windows-msvc-${{ hashFiles('frontend/src-tauri/build/onnxruntime.rs') }}
+
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -675,12 +707,13 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # License validation RSA public key (embedded at build time)
           MEETILY_RSA_PUBLIC_KEY: ${{ secrets.MEETILY_RSA_PUBLIC_KEY }}
+          MEETILY_DOODLE_URL: ${{ vars.MEETILY_DOODLE_URL }}
           # Supabase configuration (for online license verification)
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         with:
           projectPath: frontend
-          args: --target x86_64-pc-windows-msvc --features vulkan ${{ steps.build-profile.outputs.args }}
+          args: --target x86_64-pc-windows-msvc --features vulkan ${{ steps.build-profile.outputs.args }} ${{ steps.windows-portability.outputs.args }}
 
       - name: Verify build artifacts
         shell: bash

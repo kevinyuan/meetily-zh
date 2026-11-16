@@ -247,17 +247,30 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       'sensevoice-model-download-progress',
       (event) => {
         const { modelName, progress, downloaded_mb, total_mb, speed_mbps, status } = event.payload;
-        if (modelName === TRANSCRIPTION_MODEL) {
-          setTranscriptionModelProgress(progress);
+        if (modelName !== TRANSCRIPTION_MODEL) return;
+
+        if (status === 'cancelled') {
+          setIsBackgroundDownloading(false);
+          setTranscriptionModelDownloaded(false);
+          setTranscriptionModelProgress(0);
           setTranscriptionModelProgressInfo({
-            percent: progress,
-            downloadedMb: downloaded_mb ?? 0,
-            totalMb: total_mb ?? 0,
-            speedMbps: speed_mbps ?? 0,
+            percent: 0,
+            downloadedMb: 0,
+            totalMb: 0,
+            speedMbps: 0,
           });
-          if (status === 'completed' || progress >= 100) {
-            setTranscriptionModelDownloaded(true);
-          }
+          return;
+        }
+
+        setTranscriptionModelProgress(progress);
+        setTranscriptionModelProgressInfo({
+          percent: progress,
+          downloadedMb: downloaded_mb ?? 0,
+          totalMb: total_mb ?? 0,
+          speedMbps: speed_mbps ?? 0,
+        });
+        if (status === 'completed' || progress >= 100) {
+          setTranscriptionModelDownloaded(true);
         }
       }
     );
