@@ -61,7 +61,7 @@ Auto-detection is unreliable on short utterances: measured over a real meeting, 
 
 ### Chinese interface
 
-The whole UI is translated (~890 strings). The display language is autodetected from your OS locale and can be changed in **Settings → General**. Transcription language, summary language and the model filter all follow it by default.
+The whole UI is translated, about 930 strings. The display language is autodetected from your OS locale and can be changed in **Settings → General**. Transcription language, summary language and the model filter all follow it by default.
 
 ### Chinese-first defaults
 
@@ -137,7 +137,7 @@ I don't have a Windows machine and don't have time to test there, so I'm making 
 
 If you build and test it on Windows, please open an issue with what you find. Contributions welcome.
 
-**Linux** compiles but is not released upstream either — you would be building from source.
+**Linux**: upstream has shipped `.deb` and AppImage packages since 0.5.0, with native PipeWire/PulseAudio capture. This fork merges that code, but I haven't run it on Linux and I don't publish Linux builds. To try it, install the upstream package or build from source.
 
 ---
 
