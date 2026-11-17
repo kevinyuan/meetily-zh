@@ -173,3 +173,66 @@ pub const WHISPER_MODEL_CATALOG: &[WhisperModelDef] = &[
 pub fn whisper_model(name: &str) -> Option<&'static WhisperModelDef> {
     WHISPER_MODEL_CATALOG.iter().find(|m| m.name == name)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn catalog_names_and_filenames_are_unique() {
+        let names: HashSet<_> = WHISPER_MODEL_CATALOG.iter().map(|m| m.name).collect();
+        let files: HashSet<_> = WHISPER_MODEL_CATALOG.iter().map(|m| m.filename).collect();
+        assert_eq!(names.len(), WHISPER_MODEL_CATALOG.len());
+        assert_eq!(files.len(), WHISPER_MODEL_CATALOG.len());
+    }
+
+    #[test]
+    fn every_download_url_is_https_and_ends_with_its_filename() {
+        for model in WHISPER_MODEL_CATALOG {
+            assert!(model.url.starts_with("https://"), "{} is not https", model.name);
+            assert!(
+                model.url.ends_with(model.filename),
+                "{}: url {} does not end with {}",
+                model.name, model.url, model.filename
+            );
+        }
+    }
+
+    #[test]
+    fn every_model_has_a_plausible_size_and_metadata() {
+        for model in WHISPER_MODEL_CATALOG {
+            assert!(model.size_mb > 0, "{} has no size", model.name);
+            assert!(!model.description.is_empty(), "{} has no description", model.name);
+            assert!(!model.accuracy.is_empty() && !model.speed.is_empty());
+        }
+    }
+
+    #[test]
+    fn lookup_finds_known_models_and_rejects_unknown_ones() {
+        assert_eq!(whisper_model("large-v3-turbo").map(|m| m.filename), Some("ggml-large-v3-turbo.bin"));
+        assert!(whisper_model("does-not-exist").is_none());
+        assert!(whisper_model("").is_none());
+    }
+
+    #[test]
+    fn the_default_whisper_model_exists_in_the_catalog() {
+        assert!(whisper_model(DEFAULT_WHISPER_MODEL).is_some());
+    }
+
+    /// Parakeet cannot transcribe Chinese. If this ever lists "zh", the Chinese
+    /// language filter will offer a model that returns garbage.
+    #[test]
+    fn parakeet_is_never_offered_for_chinese() {
+        assert!(!PARAKEET_LANGUAGES.contains(&"zh"));
+        assert!(PARAKEET_LANGUAGES.contains(&"en"));
+    }
+
+    #[test]
+    fn every_whisper_model_is_offered_for_both_chinese_and_english() {
+        for model in WHISPER_MODEL_CATALOG {
+            assert!(model.languages.contains(&"zh"), "{} hidden under the Chinese filter", model.name);
+            assert!(model.languages.contains(&"en"), "{} hidden under the English filter", model.name);
+        }
+    }
+}

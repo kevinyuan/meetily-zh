@@ -220,3 +220,88 @@ impl DatabaseManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod migration_tests {
+    use sqlx::{Row, SqlitePool};
+
+    async fn migrated_pool() -> SqlitePool {
+        // One connection: every connection to `sqlite::memory:` is its own database.
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        pool
+    }
+
+    #[tokio::test]
+    async fn all_migrations_apply_cleanly_to_an_empty_database() {
+        let pool = migrated_pool().await;
+        let tables: Vec<String> = sqlx::query("SELECT name FROM sqlite_master WHERE type='table'")
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<String, _>("name"))
+            .collect();
+        for expected in ["meetings", "transcripts"] {
+            assert!(tables.iter().any(|t| t == expected), "missing table {expected}");
+        }
+    }
+
+    /// Opening any meeting looks transcripts up by meeting_id; without the index that
+    /// is a full table scan that grows with every meeting ever recorded.
+    #[tokio::test]
+    async fn transcript_lookup_by_meeting_uses_the_index() {
+        let pool = migrated_pool().await;
+        let plan: Vec<String> =
+            sqlx::query("EXPLAIN QUERY PLAN SELECT * FROM transcripts WHERE meeting_id = 'm'")
+                .fetch_all(&pool)
+                .await
+                .unwrap()
+                .iter()
+                .map(|r| r.get::<String, _>("detail"))
+                .collect();
+        let plan = plan.join(" | ");
+        assert!(plan.contains("idx_transcripts_meeting_id"), "plan was: {plan}");
+        assert!(!plan.contains("SCAN transcripts"), "plan was: {plan}");
+    }
+
+    /// The per-sentence language tag must survive a save and a reload.
+    #[tokio::test]
+    async fn transcript_language_is_persisted_and_nullable() {
+        let pool = migrated_pool().await;
+        sqlx::query("INSERT INTO meetings (id, title, created_at, updated_at) VALUES ('m','t','2026-01-01','2026-01-01')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        for (id, lang) in [("a", Some("zh")), ("b", Some("en")), ("c", None)] {
+            sqlx::query(
+                "INSERT INTO transcripts (id, meeting_id, transcript, timestamp, language) VALUES (?, 'm', 'x', '00:00', ?)",
+            )
+            .bind(id)
+            .bind(lang)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        let rows = sqlx::query("SELECT id, language FROM transcripts ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        let got: Vec<(String, Option<String>)> = rows
+            .iter()
+            .map(|r| (r.get("id"), r.get("language")))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("a".into(), Some("zh".into())),
+                ("b".into(), Some("en".into())),
+                ("c".into(), None),
+            ]
+        );
+    }
+}

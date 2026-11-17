@@ -835,3 +835,37 @@ mod language_tally_tests {
         assert!(2.5 >= MIN_RELIABLE_LANGUAGE_ID_SECS, "2.5s must be trusted");
     }
 }
+
+#[cfg(test)]
+mod sentence_tests {
+    use super::*;
+
+    #[test]
+    fn whole_chunk_spans_the_full_duration() {
+        let sentences = whole_chunk("你好 world".to_string(), 3.5);
+        assert_eq!(sentences.len(), 1);
+        assert_eq!(sentences[0].text, "你好 world");
+        assert_eq!((sentences[0].start, sentences[0].end), (0.0, 3.5));
+    }
+
+    #[test]
+    fn whole_chunk_drops_empty_and_whitespace_only_text() {
+        assert!(whole_chunk(String::new(), 2.0).is_empty());
+        assert!(whole_chunk("  \n\t".to_string(), 2.0).is_empty());
+    }
+
+    #[test]
+    fn segmentation_mode_is_switchable_at_runtime() {
+        set_split_on_punctuation(false);
+        assert!(!split_on_punctuation());
+        set_split_on_punctuation(true);
+        assert!(split_on_punctuation());
+    }
+
+    #[test]
+    fn short_utterances_use_the_meeting_language_not_auto_detection() {
+        // Measured: under 0.5s the model's own language ID is wrong more than half the time.
+        assert!(0.4 < MIN_RELIABLE_LANGUAGE_ID_SECS);
+        assert!(MIN_RELIABLE_LANGUAGE_ID_SECS <= 1.0);
+    }
+}

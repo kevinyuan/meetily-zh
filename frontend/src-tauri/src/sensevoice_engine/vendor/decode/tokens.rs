@@ -89,3 +89,58 @@ impl SymbolTable {
         self.id_to_sym.get(&id).map(|s| s.as_str()).unwrap_or("")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_tmp(contents: &str) -> tempfile::NamedTempFile {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write_all(contents.as_bytes()).unwrap();
+        file
+    }
+
+    #[test]
+    fn load_vocab_indexes_by_id_and_finds_the_blank() {
+        let file = write_tmp("<blk> 0\n你好 1\n\u{2581}the 2\n");
+        let (vocab, blank) = load_vocab(file.path()).unwrap();
+        assert_eq!(blank, Some(0));
+        assert_eq!(vocab[1], "你好");
+        assert_eq!(vocab[2], " the", "the sentencepiece marker becomes a space");
+    }
+
+    #[test]
+    fn load_vocab_without_a_blank_reports_none() {
+        let file = write_tmp("a 0\nb 1\n");
+        assert_eq!(load_vocab(file.path()).unwrap().1, None);
+    }
+
+    #[test]
+    fn symbol_table_splits_on_the_last_whitespace() {
+        // Symbols can themselves contain spaces; the id is always the last field.
+        let file = write_tmp("hello world 7\n你 8\n\n");
+        let table = SymbolTable::load(file.path()).unwrap();
+        assert_eq!(table.get(7), Some("hello world"));
+        assert_eq!(table.get(8), Some("你"));
+    }
+
+    #[test]
+    fn symbol_table_ignores_malformed_lines() {
+        let file = write_tmp("ok 1\nno-id-here\nbad abc\n");
+        let table = SymbolTable::load(file.path()).unwrap();
+        assert_eq!(table.get(1), Some("ok"));
+        assert_eq!(table.get_or_empty(2), "");
+        assert_eq!(table.get(2), None);
+    }
+
+    #[test]
+    fn base64_symbols_are_decoded_in_place() {
+        // "你好" in base64.
+        let file = write_tmp("5L2g5aW9 3\n");
+        let mut table = SymbolTable::load(file.path()).unwrap();
+        assert_eq!(table.get(3), Some("5L2g5aW9"));
+        table.apply_base64_decode();
+        assert_eq!(table.get(3), Some("你好"));
+    }
+}

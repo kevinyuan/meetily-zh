@@ -257,3 +257,54 @@ fn hz_to_mel(hz: f32) -> f32 {
 fn mel_to_hz(mel: f32) -> f32 {
     700.0 * ((mel / 1127.0).exp() - 1.0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sine(freq: f32, seconds: f32) -> Vec<f32> {
+        let n = (16_000.0 * seconds) as usize;
+        (0..n)
+            .map(|i| 0.5 * (2.0 * PI * freq * i as f32 / 16_000.0).sin())
+            .collect()
+    }
+
+    fn fbank_config() -> MelConfig {
+        MelConfig { normalize_samples: false, ..MelConfig::default() }
+    }
+
+    #[test]
+    fn one_second_yields_the_expected_frame_count() {
+        // 25ms window, 10ms hop, snip_edges: 1 + (16000 - 400) / 160 = 98 frames.
+        let mel = compute_mel(&sine(440.0, 1.0), &fbank_config());
+        assert_eq!(mel.shape(), &[98, 80]);
+    }
+
+    #[test]
+    fn audio_shorter_than_one_window_yields_no_frames() {
+        let mel = compute_mel(&vec![0.1; 399], &fbank_config());
+        assert_eq!(mel.nrows(), 0);
+    }
+
+    #[test]
+    fn features_are_finite_even_for_pure_silence() {
+        let mel = compute_mel(&vec![0.0; 16_000], &fbank_config());
+        assert!(mel.iter().all(|v| v.is_finite()), "log of zero energy must not produce -inf/NaN");
+    }
+
+    #[test]
+    fn a_higher_pitched_tone_peaks_in_a_higher_mel_band() {
+        let peak_band = |freq: f32| {
+            let mel = compute_mel(&sine(freq, 1.0), &fbank_config());
+            let frame = mel.row(mel.nrows() / 2);
+            frame
+                .iter()
+                .enumerate()
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .map(|(i, _)| i)
+                .unwrap()
+        };
+        let (low, mid, high) = (peak_band(300.0), peak_band(1500.0), peak_band(5000.0));
+        assert!(low < mid && mid < high, "bands: {low} {mid} {high}");
+    }
+}
