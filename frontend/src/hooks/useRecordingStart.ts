@@ -72,10 +72,11 @@ export function useRecordingStart(
   const getTranscriptionProvider = useCallback(async (): Promise<string> => {
     try {
       const config = await invoke<TranscriptConfig | null>('api_get_transcript_config');
-      return config?.provider || 'parakeet';
+      // Same default as the backend (engine.rs) when nothing is saved yet.
+      return config?.provider || 'senseVoice';
     } catch (error) {
       console.error('Failed to load transcription provider:', error);
-      return 'parakeet';
+      return 'senseVoice';
     }
   }, []);
 

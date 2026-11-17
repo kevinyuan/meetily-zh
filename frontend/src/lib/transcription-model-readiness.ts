@@ -19,6 +19,13 @@ const PROVIDER_COMMANDS: Record<string, ProviderCommands> = {
     hasAvailableModels: 'parakeet_has_available_models',
     getAvailableModels: 'parakeet_get_available_models',
   },
+  // The fork's default engine. Without this entry the readiness check reports
+  // "model not ready" for SenseVoice even when its model is downloaded.
+  senseVoice: {
+    initialize: 'sensevoice_init',
+    hasAvailableModels: 'sensevoice_has_available_models',
+    getAvailableModels: 'sensevoice_get_available_models',
+  },
 };
 
 export function getProviderCommands(provider: string): ProviderCommands | null {
