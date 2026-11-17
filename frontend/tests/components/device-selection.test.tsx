@@ -15,6 +15,10 @@ mock.module('../../src/components/ui/select', () => ({
   SelectTrigger: ({ children }: any) => <div>{children}</div>,
   SelectValue: () => <span />,
 }));
+// The component renders translated strings; initialise i18n here instead of relying on another test file having done it.
+const i18n = (await import('i18next')).default;
+await import('../../src/i18n');
+await i18n.changeLanguage('en');
 const { DeviceSelection } = await import('../../src/components/DeviceSelection');
 let renderer: ReactTestRenderer | undefined;
 afterEach(async () => {

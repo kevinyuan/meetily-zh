@@ -41,7 +41,16 @@ jobs:
 
       - name: Run tests
         working-directory: frontend
-        run: bun test
+        # One process per file: the tests install process-wide module mocks and globals
+        # (window, @tauri-apps/api/core) that would otherwise leak between files.
+        run: |
+          status=0
+          for f in $(find tests -name '*.test.ts' -o -name '*.test.tsx' | sort); do
+            echo "::group::$f"
+            bun test "$f" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
 
   rust:
     name: Rust (cargo test --lib)
