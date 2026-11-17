@@ -1,0 +1,71 @@
+name: "Tests"
+
+# Runs the Rust unit tests and the frontend tests on every push and pull request.
+# Both jobs run on standard runners, which are free for public repositories.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (bun test + tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: frontend
+        run: pnpm exec tsc --noEmit -p . 2>&1 | grep -v '^tests/' | tee tsc.log; ! grep -q 'error TS' tsc.log
+
+      - name: Run tests
+        working-directory: frontend
+        run: bun test
+
+  rust:
+    name: Rust (cargo test --lib)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust 1.99.1
+        # Pinned for the same reason as the build workflows: tauri-build 2.6.1 and ort-sys 2.0.0-rc.10 need this cargo.
+        uses: dtolnay/rust-toolchain@1.99.1
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: tests-macos-aarch64
+
+      - name: Stub the sidecar binaries
+        # tauri-build only checks that the externalBin files exist; the unit tests never run them.
+        run: |
+          mkdir -p frontend/src-tauri/binaries
+          for f in llama-helper ffmpeg; do
+            [ -e "frontend/src-tauri/binaries/$f-aarch64-apple-darwin" ] || touch "frontend/src-tauri/binaries/$f-aarch64-apple-darwin"
+          done
+
+      - name: Run tests
+        working-directory: frontend/src-tauri
+        run: cargo test --lib

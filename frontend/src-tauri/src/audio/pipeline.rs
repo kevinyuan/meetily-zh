@@ -1340,7 +1340,40 @@ impl AudioPipelineManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{PipelineLogStats, VadOperation};
+    use super::{PipelineLogStats, ProfessionalAudioMixer, VadOperation};
+
+    fn mix(mic: &[f32], sys: &[f32]) -> Vec<f32> {
+        ProfessionalAudioMixer::new(48_000).mix_window(mic, sys)
+    }
+
+    #[test]
+    fn mixer_attenuates_system_audio_and_leaves_mic_alone() {
+        assert_eq!(mix(&[0.0], &[0.5]), vec![0.35]);
+        assert_eq!(mix(&[0.25], &[0.0]), vec![0.25]);
+    }
+
+    #[test]
+    fn mixer_keeps_quiet_mic_intact_under_loud_system_audio() {
+        // Regression: system audio used to be mixed at full gain, so mic 0.1 + sys 1.0
+        // exceeded 1.0 and proportional scaling dragged the mic component down too.
+        let out = mix(&[0.1], &[1.0]);
+        assert!((out[0] - 0.8).abs() < 1e-6, "got {}", out[0]);
+    }
+
+    #[test]
+    fn mixer_never_exceeds_full_scale() {
+        let out = mix(&[1.0, -1.0, 0.9], &[1.0, -1.0, 1.0]);
+        assert!(out.iter().all(|s| s.abs() <= 1.0), "{out:?}");
+    }
+
+    #[test]
+    fn mixer_pads_the_shorter_input_with_silence() {
+        let out = mix(&[0.2, 0.2, 0.2], &[0.1]);
+        assert_eq!(out.len(), 3);
+        assert!((out[0] - 0.27).abs() < 1e-6);
+        assert_eq!(out[1], 0.2);
+        assert_eq!(mix(&[], &[]), Vec::<f32>::new());
+    }
 
     #[test]
     fn logging_pipeline_diagnostics_aggregate_and_reset() {
